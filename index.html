@@ -152,10 +152,14 @@
     <div id="player0" class="player-area"></div>
 
     <div id="battleControls">
-      <button onclick="drawForCurrent()">ドロー</button>
-      <button onclick="endTurn()">ターン終了</button>
+      <!-- ※ ドローはターン開始時に自動で1枚引くのでボタンはなし -->
       <span id="turnInfo"></span>
       <span id="attackerInfo"></span>
+      <span id="freezeInfo"></span>
+      <button id="freezeDoneBtn" onclick="finishFreezeSelection()" class="btn-small" style="display:none;">
+        選択終了
+      </button>
+      <button onclick="endTurn()" class="btn-small">ターン終了</button>
       <button onclick="backToMenu()" class="btn-small">メニューに戻る</button>
     </div>
 
@@ -276,15 +280,20 @@ function initBattle() {
     ],
     selectedAttacker: null,
     winner: null,
-    log: []
+    log: [],
+    freezeSelection: null,   // 氷の女王の凍結選択
+    inkUsedThisTurn: false   // このターンもうインクを置いたか
   };
 
-  // 初期ドロー5枚ずつ（ログは後でまとめて）
+  // 初期ドロー5枚ずつ（これは先行準備）
   for (let i = 0; i < 5; i++) {
-    drawCardRaw(0);
-    drawCardRaw(1);
+    drawCard(0);
+    drawCard(1);
   }
   logMessage("バトル開始！両者5枚ドロー。");
+
+  // 先攻プレイヤーのターン開始処理（ここで1ドロー）
+  startTurnForCurrent();
   renderBattle();
 }
 
@@ -297,44 +306,66 @@ function logMessage(msg) {
   logDiv.scrollTop = logDiv.scrollHeight;
 }
 
-function drawCardRaw(playerIndex) {
-  const p = battleState.players[playerIndex];
-  const cardId = p.deck.pop();
-  if (!cardId) return;
-  p.hand.push(cardId);
-}
-
 function drawCard(playerIndex) {
   const p = battleState.players[playerIndex];
   const cardId = p.deck.pop();
   if (!cardId) {
-    logMessage(p.name + "の山札が切れた");
-    return;
+    return false;
   }
   p.hand.push(cardId);
+  return true;
 }
 
-function drawForCurrent() {
-  if (!battleState || battleState.winner !== null) return;
-  drawCard(battleState.current);
-  logMessage(battleState.players[battleState.current].name + "がドロー");
-  renderBattle();
+/* ターン開始処理：最初に1ドロー＋スタン/レスト処理 */
+function startTurnForCurrent() {
+  const p = battleState.players[battleState.current];
+
+  // インクは毎ターンリセット（1ターン1回まで）
+  battleState.inkUsedThisTurn = false;
+
+  // スタン中のキャラは1ターン休み、それ以外はレディ
+  p.board.forEach(u => {
+    if (u.stun > 0) {
+      u.stun--;
+      u.rest = true;
+    } else {
+      u.rest = false;
+    }
+  });
+
+  // ターン開始時に必ず1ドロー（山札があれば）
+  const ok = drawCard(battleState.current);
+  if (ok) {
+    logMessage(`${p.name}のターン開始：1枚ドロー`);
+  } else {
+    logMessage(`${p.name}のターン開始：山札がなくドローできない`);
+  }
 }
 
-/* インクに埋める */
+/* インクに埋める（1ターンに1回まで） */
 function playInk(pi, hi) {
   if (battleState.winner !== null) return;
   if (pi !== battleState.current) return;
+
+  if (battleState.inkUsedThisTurn) {
+    alert("このターンはすでにコストを置いています");
+    return;
+  }
+
   const p = battleState.players[pi];
   const cardId = p.hand[hi];
   const c = cards[cardId];
-  if (!c.inkable) {
+
+  // コストレス（inkable:false）のカードはインクにできない
+  if (c.inkable === false) {
     alert("このカードはインクにできません（コストレス）");
     return;
   }
+
   p.hand.splice(hi,1);
   p.ink.push(cardId);
-  logMessage(p.name + "は「" + c.name + "」をインクにした（インク:" + p.ink.length + "）");
+  battleState.inkUsedThisTurn = true;
+  logMessage(`${p.name}は「${c.name}」をインクにした（インク:${p.ink.length}）`);
   renderBattle();
 }
 
@@ -356,22 +387,28 @@ function playCharacter(pi, hi) {
   p.hand.splice(hi,1);
   const unit = { id: cardId, rest: false, damage: 0, stun: 0 };
   p.board.push(unit);
-  logMessage(p.name + "はキャラ「" + c.name + "」を召喚（コスト" + c.cost + "）");
+  logMessage(`${p.name}はキャラ「${c.name}」を召喚（コスト${c.cost}）`);
 
-  // 氷の女王：相手キャラ2体まで凍結（次のターンも起きない）
+  // 氷の女王：相手キャラ2体まで選んで凍結
   if (c.ability === "stun2") {
-    const enemy = battleState.players[1-pi];
-    const targets = enemy.board.slice(0,2);
-    targets.forEach(t => { t.stun = 1; t.rest = true; });
-    if (targets.length > 0) {
-      logMessage("❄ 氷の女王の力で相手キャラが凍結した！");
+    const enemyIndex = 1 - pi;
+    const enemy = battleState.players[enemyIndex];
+
+    if (enemy.board.length === 0) {
+      logMessage("❄ 氷の女王：凍結できる相手キャラがいません");
+    } else {
+      battleState.freezeSelection = {
+        enemyIndex,
+        targets: [] // {index: 番号}
+      };
+      logMessage("❄ 氷の女王：凍結させるキャラを最大2体まで選んでください");
     }
   }
 
   renderBattle();
 }
 
-/* 終焉の大火（ソング） */
+/* ソング（終焉の大火など） */
 function playSong(pi, hi) {
   if (battleState.winner !== null) return;
   if (pi !== battleState.current) return;
@@ -394,7 +431,7 @@ function playSong(pi, hi) {
     });
     logMessage("🔥 終焉の大火！場のキャラはすべて消え去った！");
   } else {
-    logMessage(p.name + "はソング「" + c.name + "」を使用（効果未実装）");
+    logMessage(`${p.name}はソング「${c.name}」を使用（効果未実装）`);
   }
 
   p.hand.splice(hi,1);
@@ -416,7 +453,7 @@ function seekCharacter(pi, bi) {
   const c = cards[unit.id];
   unit.rest = true;
   p.lore += c.lore;
-  logMessage(p.name + "の「" + c.name + "」がシークし、ロア" + c.lore + "獲得！（合計ロア:" + p.lore + "）");
+  logMessage(`${p.name}の「${c.name}」がシークし、ロア${c.lore}獲得！（合計ロア:${p.lore}）`);
   checkWinner();
   renderBattle();
 }
@@ -434,7 +471,7 @@ function setAttacker(pi, bi) {
   }
   battleState.selectedAttacker = { player: pi, index: bi };
   const c = cards[unit.id];
-  logMessage(p.name + "は「" + c.name + "」をアタッカーに選んだ");
+  logMessage(`${p.name}は「${c.name}」をアタッカーに選んだ`);
   renderBattle();
 }
 
@@ -469,21 +506,66 @@ function challengeCharacter(targetPi, targetBi) {
   def.damage += atkC.strength;
   atk.rest = true;
 
-  logMessage(atkP.name + "の「" + atkC.name + "」が "
-             + defP.name + "の「" + defC.name + "」にチャレンジ！");
+  logMessage(`${atkP.name}の「${atkC.name}」が ${defP.name}の「${defC.name}」にチャレンジ！`);
 
   if (def.damage >= defC.willpower) {
     defP.grave.push(def.id);
     defP.board.splice(targetBi,1);
-    logMessage(defP.name + "の「" + defC.name + "」はバニッシュされた");
+    logMessage(`${defP.name}の「${defC.name}」はバニッシュされた`);
   }
   if (atk.damage >= atkC.willpower) {
     atkP.grave.push(atk.id);
     atkP.board.splice(sel.index,1);
-    logMessage(atkP.name + "の「" + atkC.name + "」もバニッシュされた");
+    logMessage(`${atkP.name}の「${atkC.name}」もバニッシュされた`);
   }
 
   battleState.selectedAttacker = null;
+  renderBattle();
+}
+
+/* 氷の女王：凍結対象を選ぶ */
+function selectFreezeTarget(pi, bi) {
+  if (!battleState || !battleState.freezeSelection) return;
+  const fs = battleState.freezeSelection;
+
+  if (pi !== fs.enemyIndex) return;
+
+  const enemy = battleState.players[pi];
+  const unit = enemy.board[bi];
+  if (!unit) return;
+
+  // すでに選んでいるか
+  if (fs.targets.some(t => t.index === bi)) return;
+
+  if (fs.targets.length >= 2) {
+    alert("これ以上選択できません（最大2体まで）");
+    return;
+  }
+
+  unit.stun = 1;
+  unit.rest = true;
+  fs.targets.push({ index: bi });
+
+  const c = cards[unit.id];
+  logMessage(`❄ 「${c.name}」を凍結対象に選びました`);
+
+  if (fs.targets.length >= 2) {
+    finishFreezeSelection();
+  } else {
+    renderBattle();
+  }
+}
+
+/* 氷の女王：凍結選択を終了 */
+function finishFreezeSelection() {
+  if (!battleState || !battleState.freezeSelection) return;
+  const fs = battleState.freezeSelection;
+  if (fs.targets.length === 0) {
+    logMessage("氷の女王：凍結対象を選ばずに選択を終了しました");
+  } else {
+    logMessage("氷の女王：凍結の選択を終了しました");
+  }
+  battleState.freezeSelection = null;
   renderBattle();
 }
 
@@ -494,30 +576,23 @@ function checkWinner() {
     if (battleState.players[i].lore >= 15) {
       battleState.winner = i;
       const name = battleState.players[i].name;
-      logMessage("★ " + name + "がロア15に到達！勝利！");
+      logMessage(`★ ${name}がロア15に到達！勝利！`);
       alert(name + "の勝ち！");
     }
   }
 }
 
-/* ターン終了 */
+/* ターン終了 → 相手のターン開始（自動1ドロー） */
 function endTurn() {
   if (battleState.winner !== null) return;
+  const p = battleState.players[battleState.current];
+  logMessage(`${p.name}のターンを終了`);
+
   battleState.current = 1 - battleState.current;
   battleState.selectedAttacker = null;
+  battleState.freezeSelection = null;
 
-  const p = battleState.players[battleState.current];
-  // スタンしているキャラはこのターンもレスト、それ以外をレディに
-  p.board.forEach(u => {
-    if (u.stun > 0) {
-      u.stun--;
-      u.rest = true;
-    } else {
-      u.rest = false;
-    }
-  });
-
-  logMessage("ターン交代：" + p.name + "のターン");
+  startTurnForCurrent();
   renderBattle();
 }
 
@@ -529,8 +604,12 @@ function renderBattle() {
 
   const turnInfo = document.getElementById("turnInfo");
   const atkInfo = document.getElementById("attackerInfo");
+  const freezeInfo = document.getElementById("freezeInfo");
+  const freezeBtn = document.getElementById("freezeDoneBtn");
+
   const p = battleState.players[battleState.current];
   turnInfo.textContent = "現在: " + p.name;
+
   if (battleState.selectedAttacker) {
     const sel = battleState.selectedAttacker;
     const u = battleState.players[sel.player].board[sel.index];
@@ -538,6 +617,16 @@ function renderBattle() {
     atkInfo.textContent = c ? "アタッカー: " + c.name : "";
   } else {
     atkInfo.textContent = "";
+  }
+
+  if (battleState.freezeSelection) {
+    freezeInfo.textContent =
+      "氷の女王：凍結させるキャラを選択中（" +
+      battleState.freezeSelection.targets.length + "/2）";
+    freezeBtn.style.display = "inline-block";
+  } else {
+    freezeInfo.textContent = "";
+    freezeBtn.style.display = "none";
   }
 }
 
@@ -570,12 +659,28 @@ function renderPlayer(pi) {
 
     if (battleState.winner === null && isCurrent && !u.rest) {
       html += '<button class="btn" onclick="seekCharacter(' + pi + ',' + bi + ')">シーク（ロア獲得）</button>';
-      html += '<button class="btn" onclick="setAttacker(' + pi + ',' + bi + ')">アタッカーにする</button>';
+      html += '<button class="btn" onclick="setAttacker(' + pi + ',' + bi + ')">アタッカーにする（チャレンジ）</button>';
     }
+
     const sel = battleState.selectedAttacker;
     if (battleState.winner === null && sel && sel.player === battleState.current && pi !== battleState.current) {
       html += '<button class="btn" onclick="challengeCharacter(' + pi + ',' + bi + ')">このキャラにチャレンジ</button>';
     }
+
+    // 氷の女王の凍結対象選択ボタン
+    if (battleState.winner === null &&
+        battleState.freezeSelection &&
+        pi === battleState.freezeSelection.enemyIndex) {
+
+      const already = battleState.freezeSelection.targets.some(t => t.index === bi);
+
+      if (!already && battleState.freezeSelection.targets.length < 2) {
+        html += '<button class="btn" onclick="selectFreezeTarget(' + pi + ',' + bi + ')">凍結させる</button>';
+      } else if (already) {
+        html += '<div class="card-stats">凍結対象に選択中</div>';
+      }
+    }
+
     html += '</div>';
   });
   html += '</div>';
@@ -591,7 +696,7 @@ function renderPlayer(pi) {
          + (c.inkable===false?"（コストレス）":"") + '</div>';
 
     if (battleState.winner === null && isCurrent) {
-      html += '<button class="btn" onclick="playInk(' + pi + ',' + hi + ')">インクにする</button>';
+      html += '<button class="btn" onclick="playInk(' + pi + ',' + hi + ')">インクにする（1ターン1回）</button>';
       if (c.type === "character") {
         html += '<button class="btn" onclick="playCharacter(' + pi + ',' + hi + ')">召喚</button>';
       }
