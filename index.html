@@ -88,6 +88,12 @@
     .btn-small {
       padding: 2px 4px;
       font-size: 10px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      background: #555;
+      color: #f5f5f5;
+      margin-left: 4px;
     }
     #battleControls {
       border-top: 1px solid #444;
@@ -99,6 +105,7 @@
       font-size: 12px;
       margin-top: 6px;
       margin-bottom: 6px;
+      flex-wrap: wrap;
     }
     #battleControls button {
       padding: 6px 10px;
@@ -111,7 +118,7 @@
     #log {
       padding: 6px;
       font-size: 11px;
-      max-height: 200px;
+      max-height: 220px;
       overflow-y: auto;
       background: #151515;
       border-radius: 8px;
@@ -123,6 +130,7 @@
       margin-bottom: 8px;
       font-weight: bold;
     }
+    p { font-size: 13px; }
   </style>
 </head>
 <body>
@@ -172,15 +180,12 @@
 <script>
 /* ==== 画面切り替え ==== */
 function showScreen(name) {
-  document.getElementById("menuScreen").classList.remove("active");
-  document.getElementById("battleScreen").classList.remove("active");
-  document.getElementById("packScreen").classList.remove("active");
-  document.getElementById("deckScreen").classList.remove("active");
-
-  if (name === "menu") document.getElementById("menuScreen").classList.add("active");
+  const ids = ["menuScreen","battleScreen","packScreen","deckScreen"];
+  ids.forEach(id => document.getElementById(id).classList.remove("active"));
+  if (name === "menu")   document.getElementById("menuScreen").classList.add("active");
   if (name === "battle") document.getElementById("battleScreen").classList.add("active");
-  if (name === "pack") document.getElementById("packScreen").classList.add("active");
-  if (name === "deck") document.getElementById("deckScreen").classList.add("active");
+  if (name === "pack")   document.getElementById("packScreen").classList.add("active");
+  if (name === "deck")   document.getElementById("deckScreen").classList.add("active");
 }
 
 function startBattle() {
@@ -194,27 +199,31 @@ function backToMenu() {
 
 /* ==== カード定義 ==== */
 const cards = {
-  // 代表的な赤カード
-  101:{id:101,name:"紅蓮の突撃者",color:"red",type:"character",cost:3,strength:4,willpower:1,lore:1,inkable:true},
-  102:{id:102,name:"烈火の処刑人",color:"red",type:"character",cost:5,strength:5,willpower:4,lore:2,inkable:true},
-  111:{id:111,name:"終焉の大火",color:"red",type:"song",cost:7,inkable:false,ability:"destroyAll"},
+  // 赤の代表カード
+  101:{id:101,name:"紅蓮の突撃者",color:"red",type:"character",
+       cost:3,strength:4,willpower:1,lore:1,inkable:true},
+  102:{id:102,name:"烈火の処刑人",color:"red",type:"character",
+       cost:5,strength:5,willpower:4,lore:2,inkable:true},
+  111:{id:111,name:"終焉の大火",color:"red",type:"song",
+       cost:7,inkable:false,ability:"destroyAll"},
 
-  // 代表的な紫カード
-  201:{id:201,name:"幻想の書記",color:"purple",type:"character",cost:2,strength:1,willpower:3,lore:1,inkable:true},
+  // 紫の代表カード
+  201:{id:201,name:"幻想の書記",color:"purple",type:"character",
+       cost:2,strength:1,willpower:3,lore:1,inkable:true},
   // ❄ 氷の女王：コストレス（インク不可）
   211:{id:211,name:"氷の女王 アイスフィーネ",color:"purple",type:"character",
        cost:8,strength:4,willpower:6,lore:3,inkable:false,ability:"stun2"}
 };
 
-// 汎用インクキャラを自動生成（各色 20枚）
+// 汎用インクキャラを自動生成（各色 20枚追加して30枚デッキに）
 let genId = 300;
 const redDeckBase = [101,102,111];
 const purpleDeckBase = [201,211];
 
-for(let i=0;i<20;i++){
+for (let i = 0; i < 20; i++) {
   cards[genId] = {
     id: genId,
-    name: `赤の兵士${i+1}`,
+    name: "赤の兵士" + (i+1),
     color: "red",
     type: "character",
     cost: 2,
@@ -228,7 +237,7 @@ for(let i=0;i<20;i++){
 
   cards[genId] = {
     id: genId,
-    name: `紫の学徒${i+1}`,
+    name: "紫の学徒" + (i+1),
     color: "purple",
     type: "character",
     cost: 2,
@@ -241,7 +250,7 @@ for(let i=0;i<20;i++){
   genId++;
 }
 
-function shuffle(a){return a.sort(()=>Math.random()-0.5);}
+function shuffle(a){ return a.sort(() => Math.random() - 0.5); }
 
 /* ==== バトル用ゲーム状態 ==== */
 let battleState = null;
@@ -249,9 +258,9 @@ let battleState = null;
 function createPlayer(name, deckList) {
   return {
     name,
-    deck: shuffle([...deckList]),
+    deck: shuffle(deckList.slice()),
     hand: [],
-    board: [], // {id, rest, damage, stun}
+    board: [],  // {id, rest, damage, stun}
     grave: [],
     ink: [],
     lore: 0
@@ -270,13 +279,12 @@ function initBattle() {
     log: []
   };
 
-  // 初期ドロー5枚ずつ
+  // 初期ドロー5枚ずつ（ログは後でまとめて）
   for (let i = 0; i < 5; i++) {
-    drawCard(0);
-    drawCard(1);
+    drawCardRaw(0);
+    drawCardRaw(1);
   }
-
-  logMessage("バトル開始！");
+  logMessage("バトル開始！両者5枚ドロー。");
   renderBattle();
 }
 
@@ -287,6 +295,13 @@ function logMessage(msg) {
   const logDiv = document.getElementById("log");
   logDiv.innerHTML = battleState.log.map(l => "・" + l).join("<br>");
   logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+function drawCardRaw(playerIndex) {
+  const p = battleState.players[playerIndex];
+  const cardId = p.deck.pop();
+  if (!cardId) return;
+  p.hand.push(cardId);
 }
 
 function drawCard(playerIndex) {
@@ -319,7 +334,7 @@ function playInk(pi, hi) {
   }
   p.hand.splice(hi,1);
   p.ink.push(cardId);
-  logMessage(`${p.name}は「${c.name}」をインクにした（インク:${p.ink.length}）`);
+  logMessage(p.name + "は「" + c.name + "」をインクにした（インク:" + p.ink.length + "）");
   renderBattle();
 }
 
@@ -341,9 +356,9 @@ function playCharacter(pi, hi) {
   p.hand.splice(hi,1);
   const unit = { id: cardId, rest: false, damage: 0, stun: 0 };
   p.board.push(unit);
-  logMessage(`${p.name}はキャラ「${c.name}」を召喚（コスト${c.cost}）`);
+  logMessage(p.name + "はキャラ「" + c.name + "」を召喚（コスト" + c.cost + "）");
 
-  // 氷の女王の能力：相手キャラ2体まで凍結
+  // 氷の女王：相手キャラ2体まで凍結（次のターンも起きない）
   if (c.ability === "stun2") {
     const enemy = battleState.players[1-pi];
     const targets = enemy.board.slice(0,2);
@@ -379,7 +394,7 @@ function playSong(pi, hi) {
     });
     logMessage("🔥 終焉の大火！場のキャラはすべて消え去った！");
   } else {
-    logMessage(`${p.name}はソング「${c.name}」を使用（効果未実装）`);
+    logMessage(p.name + "はソング「" + c.name + "」を使用（効果未実装）");
   }
 
   p.hand.splice(hi,1);
@@ -401,12 +416,12 @@ function seekCharacter(pi, bi) {
   const c = cards[unit.id];
   unit.rest = true;
   p.lore += c.lore;
-  logMessage(`${p.name}の「${c.name}」がシークし、ロア${c.lore}獲得！（合計ロア:${p.lore}）`);
+  logMessage(p.name + "の「" + c.name + "」がシークし、ロア" + c.lore + "獲得！（合計ロア:" + p.lore + "）");
   checkWinner();
   renderBattle();
 }
 
-/* アタッカー指定＆チャレンジ */
+/* アタッカー指定 */
 function setAttacker(pi, bi) {
   if (battleState.winner !== null) return;
   if (pi !== battleState.current) return;
@@ -419,10 +434,11 @@ function setAttacker(pi, bi) {
   }
   battleState.selectedAttacker = { player: pi, index: bi };
   const c = cards[unit.id];
-  logMessage(`${p.name}は「${c.name}」をアタッカーに選んだ`);
+  logMessage(p.name + "は「" + c.name + "」をアタッカーに選んだ");
   renderBattle();
 }
 
+/* チャレンジ（攻撃） */
 function challengeCharacter(targetPi, targetBi) {
   if (battleState.winner !== null) return;
   const sel = battleState.selectedAttacker;
@@ -453,17 +469,18 @@ function challengeCharacter(targetPi, targetBi) {
   def.damage += atkC.strength;
   atk.rest = true;
 
-  logMessage(`${atkP.name}の「${atkC.name}」が ${defP.name}の「${defC.name}」にチャレンジ！`);
+  logMessage(atkP.name + "の「" + atkC.name + "」が "
+             + defP.name + "の「" + defC.name + "」にチャレンジ！");
 
   if (def.damage >= defC.willpower) {
     defP.grave.push(def.id);
     defP.board.splice(targetBi,1);
-    logMessage(`${defP.name}の「${defC.name}」はバニッシュされた`);
+    logMessage(defP.name + "の「" + defC.name + "」はバニッシュされた");
   }
   if (atk.damage >= atkC.willpower) {
     atkP.grave.push(atk.id);
     atkP.board.splice(sel.index,1);
-    logMessage(`${atkP.name}の「${atkC.name}」もバニッシュされた`);
+    logMessage(atkP.name + "の「" + atkC.name + "」もバニッシュされた");
   }
 
   battleState.selectedAttacker = null;
@@ -473,11 +490,11 @@ function challengeCharacter(targetPi, targetBi) {
 /* 勝利判定（ロア15で勝ち） */
 function checkWinner() {
   if (battleState.winner !== null) return;
-  for (let i=0;i<2;i++){
-    if (battleState.players[i].lore >= 15){
+  for (let i = 0; i < 2; i++) {
+    if (battleState.players[i].lore >= 15) {
       battleState.winner = i;
       const name = battleState.players[i].name;
-      logMessage(`★ ${name}がロア15に到達！勝利！`);
+      logMessage("★ " + name + "がロア15に到達！勝利！");
       alert(name + "の勝ち！");
     }
   }
@@ -490,7 +507,7 @@ function endTurn() {
   battleState.selectedAttacker = null;
 
   const p = battleState.players[battleState.current];
-  // スタンしているキャラはこのターンもレスト、それ以外を起こす
+  // スタンしているキャラはこのターンもレスト、それ以外をレディに
   p.board.forEach(u => {
     if (u.stun > 0) {
       u.stun--;
@@ -500,11 +517,11 @@ function endTurn() {
     }
   });
 
-  logMessage(`ターン交代：${p.name}のターン`);
+  logMessage("ターン交代：" + p.name + "のターン");
   renderBattle();
 }
 
-/* 描画 */
+/* 描画処理 */
 function renderBattle() {
   if (!battleState) return;
   renderPlayer(0);
@@ -513,12 +530,12 @@ function renderBattle() {
   const turnInfo = document.getElementById("turnInfo");
   const atkInfo = document.getElementById("attackerInfo");
   const p = battleState.players[battleState.current];
-  turnInfo.textContent = `現在: ${p.name}`;
+  turnInfo.textContent = "現在: " + p.name;
   if (battleState.selectedAttacker) {
     const sel = battleState.selectedAttacker;
     const u = battleState.players[sel.player].board[sel.index];
     const c = u ? cards[u.id] : null;
-    atkInfo.textContent = c ? `アタッカー: ${c.name}` : "";
+    atkInfo.textContent = c ? "アタッカー: " + c.name : "";
   } else {
     atkInfo.textContent = "";
   }
@@ -530,56 +547,61 @@ function renderPlayer(pi) {
   const isCurrent = (pi === battleState.current);
 
   let html = "";
-  html += `<div class="player-header">
-    <span>${pi===0?"赤プレイヤー（赤デッキ）":"紫プレイヤー（紫デッキ）"}</span>
-    <span>ロア:${p.lore}｜インク:${p.ink.length}｜山札:${p.deck.length}｜手札:${p.hand.length}</span>
-    <span>${isCurrent?"★ このプレイヤーのターン":""}</span>
-  </div>`;
+  html += '<div class="player-header">'
+       + '<span>' + (pi===0?"赤プレイヤー（赤デッキ）":"紫プレイヤー（紫デッキ）") + '</span>'
+       + '<span>ロア:' + p.lore + '｜インク:' + p.ink.length
+       + '｜山札:' + p.deck.length + '｜手札:' + p.hand.length + '</span>'
+       + '<span>' + (isCurrent?"★ このプレイヤーのターン":"") + '</span>'
+       + '</div>';
 
   // 場
-  html += `<div class="zone-title">場</div><div class="zone">`;
+  html += '<div class="zone-title">場</div><div class="zone">';
   p.board.forEach((u,bi)=>{
     const c = cards[u.id];
     const colorClass = c.color === "red" ? "card-red" : "card-purple";
     const state = u.rest ? "レスト" : "レディ";
-    const dmg = u.damage>0 ? ` / ダメージ:${u.damage}` : "";
+    const dmg = u.damage>0 ? " / ダメージ:" + u.damage : "";
     const stun = u.stun>0 ? " / ❄凍結中" : "";
-    html += `<div class="card ${colorClass}">
-      <div class="card-name">${c.name}</div>
-      <div class="card-stats">${c.strength}/${c.willpower} / ロア:${c.lore}</div>
-      <div class="card-stats">状態:${state}${dmg}${stun}</div>`;
+    html += '<div class="card ' + colorClass + '">'
+         + '<div class="card-name">' + c.name + '</div>'
+         + '<div class="card-stats">' + c.strength + '/' + c.willpower
+         + ' / ロア:' + c.lore + '</div>'
+         + '<div class="card-stats">状態:' + state + dmg + stun + '</div>';
+
     if (battleState.winner === null && isCurrent && !u.rest) {
-      html += `<button class="btn" onclick="seekCharacter(${pi},${bi})">シーク（ロア獲得）</button>`;
-      html += `<button class="btn" onclick="setAttacker(${pi},${bi})">アタッカーにする</button>`;
+      html += '<button class="btn" onclick="seekCharacter(' + pi + ',' + bi + ')">シーク（ロア獲得）</button>';
+      html += '<button class="btn" onclick="setAttacker(' + pi + ',' + bi + ')">アタッカーにする</button>';
     }
     const sel = battleState.selectedAttacker;
     if (battleState.winner === null && sel && sel.player === battleState.current && pi !== battleState.current) {
-      html += `<button class="btn" onclick="challengeCharacter(${pi},${bi})">このキャラにチャレンジ</button>`;
+      html += '<button class="btn" onclick="challengeCharacter(' + pi + ',' + bi + ')">このキャラにチャレンジ</button>';
     }
-    html += `</div>`;
+    html += '</div>';
   });
-  html += `</div>`;
+  html += '</div>';
 
   // 手札
-  html += `<div class="zone-title">手札</div><div class="zone">`;
+  html += '<div class="zone-title">手札</div><div class="zone">';
   p.hand.forEach((cid,hi)=>{
     const c = cards[cid];
     const colorClass = c.color === "red" ? "card-red" : "card-purple";
-    html += `<div class="card ${colorClass}">
-      <div class="card-name">${c.name}</div>
-      <div class="card-stats">[${c.type}] コスト:${c.cost ?? "-"}${c.inkable===false?"（コストレス）":""}</div>`;
+    html += '<div class="card ' + colorClass + '">'
+         + '<div class="card-name">' + c.name + '</div>'
+         + '<div class="card-stats">[' + c.type + '] コスト:' + (c.cost ?? "-")
+         + (c.inkable===false?"（コストレス）":"") + '</div>';
+
     if (battleState.winner === null && isCurrent) {
-      html += `<button class="btn" onclick="playInk(${pi},${hi})">インクにする</button>`;
+      html += '<button class="btn" onclick="playInk(' + pi + ',' + hi + ')">インクにする</button>';
       if (c.type === "character") {
-        html += `<button class="btn" onclick="playCharacter(${pi},${hi})">召喚</button>`;
+        html += '<button class="btn" onclick="playCharacter(' + pi + ',' + hi + ')">召喚</button>';
       }
       if (c.type === "song") {
-        html += `<button class="btn" onclick="playSong(${pi},${hi})">ソングを使う</button>`;
+        html += '<button class="btn" onclick="playSong(' + pi + ',' + hi + ')">ソングを使う</button>';
       }
     }
-    html += `</div>`;
+    html += '</div>';
   });
-  html += `</div>`;
+  html += '</div>';
 
   container.innerHTML = html;
 }
