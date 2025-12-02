@@ -1,0 +1,226 @@
+
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>赤 vs 紫 ミニTCG（30枚デッキ版）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #181818;
+      color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      text-align: center;
+      padding: 10px;
+      font-size: 18px;
+      background: #242424;
+      margin: 0;
+    }
+    #game {
+      max-width: 520px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px;
+    }
+    .player-area {
+      border: 1px solid #444;
+      border-radius: 10px;
+      padding: 8px;
+      background: #202020;
+    }
+    .player-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+    .zone-title { font-size: 11px; margin-top: 6px; opacity: 0.8; }
+    .zone { display: flex; flex-wrap: wrap; gap: 4px; }
+    .card {
+      border-radius: 6px;
+      padding: 4px;
+      font-size: 11px;
+      width: 46%;
+      border: 1px solid #555;
+      background: #121212;
+    }
+    .card-red { border-color: #f44336; }
+    .card-purple { border-color: #9c27b0; }
+    .card-name { font-weight: bold; font-size: 12px; }
+    .card-stats { font-size: 10px; }
+    button { margin-top: 3px; width: 100%; }
+    #controls {
+      border-top: 1px solid #444;
+      border-bottom: 1px solid #444;
+      padding: 6px;
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      font-size: 12px;
+    }
+    #log {
+      padding: 6px;
+      font-size: 11px;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #151515;
+    }
+  </style>
+</head>
+<body>
+<h1>赤 vs 紫 ミニTCG（30枚デッキ版）</h1>
+<div id="game">
+  <div id="player1" class="player-area"></div>
+  <div id="player0" class="player-area"></div>
+  <div id="controls">
+    <button onclick="drawForCurrent()">ドロー</button>
+    <button onclick="endTurn()">ターン終了</button>
+    <span id="turnInfo"></span>
+  </div>
+  <div id="log"></div>
+</div>
+
+<script>
+const cards = {
+  101:{id:101,name:"紅蓮の突撃者",color:"red",type:"character",cost:3,strength:4,willpower:1,lore:1,inkable:true},
+  102:{id:102,name:"烈火の処刑人",color:"red",type:"character",cost:5,strength:5,willpower:4,lore:2,inkable:true},
+  111:{id:111,name:"終焉の大火",color:"red",type:"song",cost:7,inkable:false,ability:"destroyAll"},
+  201:{id:201,name:"幻想の書記",color:"purple",type:"character",cost:2,strength:1,willpower:3,lore:1,inkable:true},
+  211:{id:211,name:"氷の女王 アイスフィーネ",color:"purple",type:"character",cost:8,strength:4,willpower:6,lore:3,inkable:true,ability:"stun2"}
+};
+
+// 汎用インクキャラを自動生成（20枚ずつ）
+let id = 300;
+for(let i=0;i<20;i++){
+  cards[id]={id,name:`赤の兵士${i+1}`,color:"red",type:"character",cost:2,strength:2,willpower:2,lore:1,inkable:true}; id++;
+  cards[id]={id,name:`紫の学徒${i+1}`,color:"purple",type:"character",cost:2,strength:1,willpower:3,lore:1,inkable:true}; id++;
+}
+
+const redDeck=[], purpleDeck=[];
+Object.values(cards).forEach(c=>{
+  if(c.color==="red") redDeck.push(c.id);
+  if(c.color==="purple") purpleDeck.push(c.id);
+});
+
+function shuffle(a){return a.sort(()=>Math.random()-0.5);}
+
+let gameState = {
+  current:0,
+  players:[
+    {name:"赤プレイヤー",deck:shuffle([...redDeck]),hand:[],board:[],grave:[],ink:[],lore:0},
+    {name:"紫プレイヤー",deck:shuffle([...purpleDeck]),hand:[],board:[],grave:[],ink:[],lore:0}
+  ],
+  log:[]
+};
+
+function log(t){gameState.log.push(t); if(gameState.log.length>50)gameState.log.shift();}
+
+function drawForCurrent(){
+  const p=gameState.players[gameState.current];
+  const card=p.deck.pop();
+  if(card){p.hand.push(card);log(`${p.name}がドロー`);}
+  render();
+}
+
+function playCharacter(pi,hi){
+  const p=gameState.players[pi];
+  const c=cards[p.hand[hi]];
+  if(p.ink.length<c.cost)return alert("インク不足");
+  p.hand.splice(hi,1);
+  p.board.push({id:c.id,rest:false,stun:0});
+  log(`${p.name}が${c.name}を召喚`);
+
+  // 氷の女王：2体凍結
+  if(c.ability==="stun2"){
+    const enemy=gameState.players[1-pi];
+    enemy.board.slice(0,2).forEach(b=>b.stun=1);
+    log("❄️相手キャラ2体が凍結！");
+  }
+  render();
+}
+
+function playInk(pi,hi){
+  const p=gameState.players[pi];
+  const c=cards[p.hand[hi]];
+  if(!c.inkable) return alert("インク不可");
+  p.hand.splice(hi,1);
+  p.ink.push(c.id);
+  render();
+}
+
+// 終焉の大火
+function playSong(pi,hi){
+  const p=gameState.players[pi];
+  const c=cards[p.hand[hi]];
+  if(c.ability==="destroyAll"){
+    gameState.players.forEach(pl=>{
+      pl.board.forEach(b=>pl.grave.push(b.id));
+      pl.board=[];
+    });
+    log("🔥 終焉の大火！全キャラ消滅！");
+  }
+  p.hand.splice(hi,1);
+  render();
+}
+
+function endTurn(){
+  gameState.current=1-gameState.current;
+  const p=gameState.players[gameState.current];
+  p.board.forEach(b=>{
+    if(b.stun>0){b.stun--; b.rest=true;}
+    else b.rest=false;
+  });
+  log(`ターン交代：${p.name}`);
+  render();
+}
+
+function render(){
+  ["player0","player1"].forEach((id,pi)=>{
+    const p=gameState.players[pi];
+    let h=`<div class="player-header">${p.name}｜ロア:${p.lore}｜インク:${p.ink.length}</div>`;
+    h+=`<div class="zone-title">場</div><div class="zone">`;
+    p.board.forEach(b=>{
+      const c=cards[b.id];
+      h+=`<div class="card card-${c.color}">
+        <div class="card-name">${c.name}</div>
+        <div class="card-stats">${c.strength}/${c.willpower}</div>
+        ${b.stun?`<div>❄凍結中</div>`:""}
+      </div>`;
+    });
+    h+=`</div><div class="zone-title">手札</div><div class="zone">`;
+    p.hand.forEach((cid,i)=>{
+      const c=cards[cid];
+      h+=`<div class="card card-${c.color}">
+        <div class="card-name">${c.name}</div>
+        ${pi===gameState.current?`
+        <button onclick="playInk(${pi},${i})">インク</button>
+        ${c.type==="character"?`<button onclick="playCharacter(${pi},${i})">召喚</button>`:""}
+        ${c.type==="song"?`<button onclick="playSong(${pi},${i})">使用</button>`:""}
+        `:""}
+      </div>`;
+    });
+    h+=`</div>`;
+    document.getElementById(id).innerHTML=h;
+  });
+
+  document.getElementById("turnInfo").textContent =
+    `現在：${gameState.players[gameState.current].name}`;
+
+  document.getElementById("log").innerHTML =
+    gameState.log.map(l=>`・${l}`).join("<br>");
+}
+
+// 初期ドロー
+gameState.players.forEach(p=>{for(let i=0;i<5;i++)drawForCurrent();});
+render();
+</script>
+</body>
+</html>
