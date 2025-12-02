@@ -1,14 +1,13 @@
 
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>赤 vs 紫 ミニTCG（スマホ用）</title>
+  <title>赤 vs 紫 ミニTCG（30枚デッキ版）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: #181818;
@@ -35,769 +34,193 @@
       border: 1px solid #444;
       border-radius: 10px;
       padding: 8px;
-      margin-bottom: 4px;
       background: #202020;
     }
     .player-header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      gap: 6px;
-      margin-bottom: 6px;
       font-size: 12px;
       flex-wrap: wrap;
     }
-    .player-header span {
-      display: inline-block;
-    }
-    .active-label {
-      padding: 2px 6px;
-      border-radius: 999px;
-      font-size: 11px;
-      border: 1px solid #aaa;
-      white-space: nowrap;
-    }
-    .active {
-      background: #4caf50;
-    }
-    .zone-title {
-      font-size: 11px;
-      margin-top: 4px;
-      margin-bottom: 4px;
-      opacity: 0.8;
-    }
-    .zone {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      min-height: 28px;
-    }
+    .zone-title { font-size: 11px; margin-top: 6px; opacity: 0.8; }
+    .zone { display: flex; flex-wrap: wrap; gap: 4px; }
     .card {
       border-radius: 6px;
       padding: 4px;
       font-size: 11px;
-      line-height: 1.4;
       width: 46%;
-      min-width: 130px;
       border: 1px solid #555;
       background: #121212;
     }
-    @media (min-width: 480px) {
-      .card {
-        width: 30%;
-      }
-    }
     .card-red { border-color: #f44336; }
     .card-purple { border-color: #9c27b0; }
-    .card-type {
-      font-size: 10px;
-      opacity: 0.7;
-    }
-    .card-name {
-      font-weight: bold;
-      font-size: 12px;
-      margin-bottom: 2px;
-    }
-    .card-stats {
-      font-size: 10px;
-      opacity: 0.9;
-    }
-    .hand-card button,
-    .board-btn {
-      width: 100%;
-      margin-top: 3px;
-      font-size: 11px;
-      padding: 4px;
-      border-radius: 4px;
-      border: none;
-      cursor: pointer;
-    }
-    .hand-card button {
-      background: #333;
-      color: #f5f5f5;
-    }
-    .hand-card button + button {
-      margin-top: 2px;
-    }
-    .board-btn {
-      background: #444;
-      color: #f5f5f5;
-    }
+    .card-name { font-weight: bold; font-size: 12px; }
+    .card-stats { font-size: 10px; }
+    button { margin-top: 3px; width: 100%; }
     #controls {
       border-top: 1px solid #444;
       border-bottom: 1px solid #444;
-      padding: 6px 8px;
+      padding: 6px;
       display: flex;
       gap: 6px;
       justify-content: center;
-      flex-wrap: wrap;
       font-size: 12px;
-      background: #202020;
-      border-radius: 8px;
-    }
-    #controls button {
-      font-size: 13px;
-      padding: 6px 10px;
-      border-radius: 5px;
-      border: none;
-      cursor: pointer;
-      background: #424242;
-      color: #f5f5f5;
-    }
-    #controls button:disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
-    #turnInfo,
-    #attackerInfo {
-      font-size: 11px;
     }
     #log {
-      padding: 6px 8px;
+      padding: 6px;
       font-size: 11px;
       max-height: 200px;
       overflow-y: auto;
       background: #151515;
-      border-radius: 8px;
-      border: 1px solid #333;
-    }
-    .log-line {
-      margin-bottom: 2px;
     }
   </style>
 </head>
 <body>
-  <h1>赤 vs 紫 ミニTCG（スマホ用）</h1>
-  <div id="game">
-    <!-- 上：紫プレイヤー -->
-    <div id="player1" class="player-area"></div>
-    <!-- 下：赤プレイヤー -->
-    <div id="player0" class="player-area"></div>
-
-    <div id="controls">
-      <button id="drawBtn" onclick="drawForCurrent()">ドロー</button>
-      <button id="endTurnBtn" onclick="endTurn()">ターン終了</button>
-      <span id="turnInfo"></span>
-      <span id="attackerInfo"></span>
-    </div>
-
-    <div id="log"></div>
+<h1>赤 vs 紫 ミニTCG（30枚デッキ版）</h1>
+<div id="game">
+  <div id="player1" class="player-area"></div>
+  <div id="player0" class="player-area"></div>
+  <div id="controls">
+    <button onclick="drawForCurrent()">ドロー</button>
+    <button onclick="endTurn()">ターン終了</button>
+    <span id="turnInfo"></span>
   </div>
+  <div id="log"></div>
+</div>
 
-  <script>
-    // ===== カード定義 =====
-    const cards = {
-      // --- 赤 -------------------------------------------------------
-      101: {
-        id: 101,
-        name: "炎刃の闘士",
-        color: "red",
-        type: "character",
-        cost: 2,
-        strength: 2,
-        willpower: 2,
-        lore: 1,
-        inkable: true,
-        ability: null
-      },
-      102: {
-        id: 102,
-        name: "灼熱の破壊兵",
-        color: "red",
-        type: "character",
-        cost: 3,
-        strength: 3,
-        willpower: 2,
-        lore: 1,
-        inkable: true,
-        ability: "onPlayPing1" // 未実装
-      },
-      103: {
-        id: 103,
-        name: "紅蓮の突撃者",
-        color: "red",
-        type: "character",
-        cost: 3,
-        strength: 4,
-        willpower: 1,
-        lore: 1,
-        inkable: true,
-        ability: "onChallengeGain1" // 未実装
-      },
-      104: {
-        id: 104,
-        name: "爆炎の狂戦士",
-        color: "red",
-        type: "character",
-        cost: 4,
-        strength: 4,
-        willpower: 3,
-        lore: 2,
-        inkable: true,
-        ability: "onBanishDeal2" // 未実装
-      },
-      105: {
-        id: 105,
-        name: "烈火の処刑人",
-        color: "red",
-        type: "character",
-        cost: 5,
-        strength: 5,
-        willpower: 4,
-        lore: 2,
-        inkable: true,
-        ability: "onPlayKill3" // 未実装
-      },
-      106: {
-        id: 106,
-        name: "紅の魔獣王",
-        color: "red",
-        type: "character",
-        cost: 6,
-        strength: 6,
-        willpower: 5,
-        lore: 3,
-        inkable: true,
-        ability: "onPlayAoE1" // 未実装
-      },
-      111: {
-        id: 111,
-        name: "業火の回避王",
-        color: "red",
-        type: "character",
-        cost: 8,
-        strength: 5,
-        willpower: 5,
-        lore: 4,
-        inkable: true,
-        ability: "evasive" // 回避（未実装）
-      },
-      131: {
-        id: 131,
-        name: "終焉の大火",
-        color: "red",
-        type: "song",
-        cost: 7,
-        inkable: false,
-        songByCharacter: true,
-        ability: "destroyAllCharacters" // まだ効果は入れてない
-      },
-      132: {
-        id: 132,
-        name: "業火の咆哮",
-        color: "red",
-        type: "song",
-        cost: 4,
-        inkable: true,
-        songByCharacter: true,
-        ability: "burn4" // 未実装
-      },
-      133: {
-        id: 133,
-        name: "焼き尽くせ",
-        color: "red",
-        type: "magic",
-        cost: 3,
-        inkable: true,
-        ability: "direct3" // 未実装
-      },
+<script>
+const cards = {
+  101:{id:101,name:"紅蓮の突撃者",color:"red",type:"character",cost:3,strength:4,willpower:1,lore:1,inkable:true},
+  102:{id:102,name:"烈火の処刑人",color:"red",type:"character",cost:5,strength:5,willpower:4,lore:2,inkable:true},
+  111:{id:111,name:"終焉の大火",color:"red",type:"song",cost:7,inkable:false,ability:"destroyAll"},
+  201:{id:201,name:"幻想の書記",color:"purple",type:"character",cost:2,strength:1,willpower:3,lore:1,inkable:true},
+  211:{id:211,name:"氷の女王 アイスフィーネ",color:"purple",type:"character",cost:8,strength:4,willpower:6,lore:3,inkable:true,ability:"stun2"}
+};
 
-      // --- 紫 -------------------------------------------------------
-      201: {
-        id: 201,
-        name: "幻想の書記",
-        color: "purple",
-        type: "character",
-        cost: 2,
-        strength: 1,
-        willpower: 3,
-        lore: 1,
-        inkable: true,
-        ability: "onPlayDraw1" // 未実装
-      },
-      202: {
-        id: 202,
-        name: "夢見の魔術師",
-        color: "purple",
-        type: "character",
-        cost: 3,
-        strength: 2,
-        willpower: 3,
-        lore: 1,
-        inkable: true,
-        ability: "onPlayDraw1" // 未実装
-      },
-      203: {
-        id: 203,
-        name: "次元の奇術師",
-        color: "purple",
-        type: "character",
-        cost: 3,
-        strength: 2,
-        willpower: 2,
-        lore: 2,
-        inkable: true,
-        ability: "onQuestLoot" // 未実装
-      },
-      204: {
-        id: 204,
-        name: "虚像の召喚士",
-        color: "purple",
-        type: "character",
-        cost: 4,
-        strength: 3,
-        willpower: 3,
-        lore: 2,
-        inkable: true,
-        ability: "onPlayBounce1" // 未実装
-      },
-      205: {
-        id: 205,
-        name: "深淵の策士",
-        color: "purple",
-        type: "character",
-        cost: 5,
-        strength: 3,
-        willpower: 5,
-        lore: 2,
-        inkable: true,
-        ability: "pay2Draw1" // 未実装
-      },
-      211: {
-        id: 211,
-        name: "氷界の女王 アイスフィーネ",
-        color: "purple",
-        type: "character",
-        cost: 8,
-        strength: 4,
-        willpower: 6,
-        lore: 3,
-        inkable: true,
-        ability: "onPlayStun2" // まだ効果は入れてない
-      },
-      231: {
-        id: 231,
-        name: "知識の調べ",
-        color: "purple",
-        type: "song",
-        cost: 3,
-        inkable: true,
-        songByCharacter: true,
-        ability: "draw2" // 未実装
-      },
-      232: {
-        id: 232,
-        name: "運命改変の歌",
-        color: "purple",
-        type: "song",
-        cost: 5,
-        inkable: true,
-        songByCharacter: true,
-        ability: "draw3Discard1" // 未実装
-      },
-      233: {
-        id: 233,
-        name: "強制転移",
-        color: "purple",
-        type: "magic",
-        cost: 2,
-        inkable: true,
-        ability: "bounce1" // 未実装
-      },
-      234: {
-        id: 234,
-        name: "記憶の入れ替え",
-        color: "purple",
-        type: "magic",
-        cost: 3,
-        inkable: true,
-        ability: "cycleHand" // 未実装
-      }
-    };
+// 汎用インクキャラを自動生成（20枚ずつ）
+let id = 300;
+for(let i=0;i<20;i++){
+  cards[id]={id,name:`赤の兵士${i+1}`,color:"red",type:"character",cost:2,strength:2,willpower:2,lore:1,inkable:true}; id++;
+  cards[id]={id,name:`紫の学徒${i+1}`,color:"purple",type:"character",cost:2,strength:1,willpower:3,lore:1,inkable:true}; id++;
+}
 
-    // ===== ゲーム状態 =====
-    function createPlayer(name, deckList) {
-      return {
-        name,
-        deck: shuffle([...deckList]),
-        hand: [],
-        board: [],      // { cardId, rested, damage }
-        grave: [],
-        costZone: [],
-        lore: 0
-      };
-    }
+const redDeck=[], purpleDeck=[];
+Object.values(cards).forEach(c=>{
+  if(c.color==="red") redDeck.push(c.id);
+  if(c.color==="purple") purpleDeck.push(c.id);
+});
 
-    function shuffle(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-      return array;
-    }
+function shuffle(a){return a.sort(()=>Math.random()-0.5);}
 
-    const redDeckList = [101,102,103,104,105,106,111,131,132,133];
-    const purpleDeckList = [201,202,203,204,205,211,231,232,233,234];
+let gameState = {
+  current:0,
+  players:[
+    {name:"赤プレイヤー",deck:shuffle([...redDeck]),hand:[],board:[],grave:[],ink:[],lore:0},
+    {name:"紫プレイヤー",deck:shuffle([...purpleDeck]),hand:[],board:[],grave:[],ink:[],lore:0}
+  ],
+  log:[]
+};
 
-    let gameState = {
-      currentPlayer: 0, // 0: 下（赤）, 1: 上（紫）
-      players: [],
-      log: [],
-      selectedAttacker: null, // { playerIndex, boardIndex }
-      winner: null
-    };
+function log(t){gameState.log.push(t); if(gameState.log.length>50)gameState.log.shift();}
 
-    function initGame() {
-      gameState.players = [
-        createPlayer("赤プレイヤー", redDeckList),
-        createPlayer("紫プレイヤー", purpleDeckList)
-      ];
-      gameState.currentPlayer = 0;
-      gameState.log = [];
-      gameState.selectedAttacker = null;
-      gameState.winner = null;
+function drawForCurrent(){
+  const p=gameState.players[gameState.current];
+  const card=p.deck.pop();
+  if(card){p.hand.push(card);log(`${p.name}がドロー`);}
+  render();
+}
 
-      // 各プレイヤー3枚ドロー
-      for (let i = 0; i < 3; i++) {
-        drawCard(0);
-        drawCard(1);
-      }
+function playCharacter(pi,hi){
+  const p=gameState.players[pi];
+  const c=cards[p.hand[hi]];
+  if(p.ink.length<c.cost)return alert("インク不足");
+  p.hand.splice(hi,1);
+  p.board.push({id:c.id,rest:false,stun:0});
+  log(`${p.name}が${c.name}を召喚`);
 
-      logMessage("ゲーム開始！ 赤 vs 紫");
-      render();
-    }
+  // 氷の女王：2体凍結
+  if(c.ability==="stun2"){
+    const enemy=gameState.players[1-pi];
+    enemy.board.slice(0,2).forEach(b=>b.stun=1);
+    log("❄️相手キャラ2体が凍結！");
+  }
+  render();
+}
 
-    function logMessage(msg) {
-      gameState.log.push(msg);
-      if (gameState.log.length > 80) gameState.log.shift();
-      renderLog();
-    }
+function playInk(pi,hi){
+  const p=gameState.players[pi];
+  const c=cards[p.hand[hi]];
+  if(!c.inkable) return alert("インク不可");
+  p.hand.splice(hi,1);
+  p.ink.push(c.id);
+  render();
+}
 
-    function drawCard(playerIndex) {
-      const p = gameState.players[playerIndex];
-      const cardId = p.deck.pop();
-      if (cardId === undefined) {
-        logMessage(`${p.name} の山札が切れています`);
-        return;
-      }
-      p.hand.push(cardId);
-      const card = cards[cardId];
-      logMessage(`${p.name} が「${card.name}」をドロー`);
-    }
+// 終焉の大火
+function playSong(pi,hi){
+  const p=gameState.players[pi];
+  const c=cards[p.hand[hi]];
+  if(c.ability==="destroyAll"){
+    gameState.players.forEach(pl=>{
+      pl.board.forEach(b=>pl.grave.push(b.id));
+      pl.board=[];
+    });
+    log("🔥 終焉の大火！全キャラ消滅！");
+  }
+  p.hand.splice(hi,1);
+  render();
+}
 
-    function drawForCurrent() {
-      if (gameState.winner !== null) return;
-      drawCard(gameState.currentPlayer);
-      render();
-    }
+function endTurn(){
+  gameState.current=1-gameState.current;
+  const p=gameState.players[gameState.current];
+  p.board.forEach(b=>{
+    if(b.stun>0){b.stun--; b.rest=true;}
+    else b.rest=false;
+  });
+  log(`ターン交代：${p.name}`);
+  render();
+}
 
-    function playCardAsCost(playerIndex, handIndex) {
-      if (gameState.winner !== null) return;
-      if (playerIndex !== gameState.currentPlayer) return;
-      const p = gameState.players[playerIndex];
-      const cardId = p.hand[handIndex];
-      const card = cards[cardId];
-      if (card.inkable === false) {
-        alert("このカードはコストにできません（コストレス）");
-        return;
-      }
-      p.hand.splice(handIndex, 1);
-      p.costZone.push(cardId);
-      logMessage(`${p.name} は「${card.name}」をコストとして埋めた（現在コスト: ${p.costZone.length}）`);
-      render();
-    }
+function render(){
+  ["player0","player1"].forEach((id,pi)=>{
+    const p=gameState.players[pi];
+    let h=`<div class="player-header">${p.name}｜ロア:${p.lore}｜インク:${p.ink.length}</div>`;
+    h+=`<div class="zone-title">場</div><div class="zone">`;
+    p.board.forEach(b=>{
+      const c=cards[b.id];
+      h+=`<div class="card card-${c.color}">
+        <div class="card-name">${c.name}</div>
+        <div class="card-stats">${c.strength}/${c.willpower}</div>
+        ${b.stun?`<div>❄凍結中</div>`:""}
+      </div>`;
+    });
+    h+=`</div><div class="zone-title">手札</div><div class="zone">`;
+    p.hand.forEach((cid,i)=>{
+      const c=cards[cid];
+      h+=`<div class="card card-${c.color}">
+        <div class="card-name">${c.name}</div>
+        ${pi===gameState.current?`
+        <button onclick="playInk(${pi},${i})">インク</button>
+        ${c.type==="character"?`<button onclick="playCharacter(${pi},${i})">召喚</button>`:""}
+        ${c.type==="song"?`<button onclick="playSong(${pi},${i})">使用</button>`:""}
+        `:""}
+      </div>`;
+    });
+    h+=`</div>`;
+    document.getElementById(id).innerHTML=h;
+  });
 
-    function playCharacter(playerIndex, handIndex) {
-      if (gameState.winner !== null) return;
-      if (playerIndex !== gameState.currentPlayer) return;
-      const p = gameState.players[playerIndex];
-      const cardId = p.hand[handIndex];
-      const card = cards[cardId];
-      if (card.type !== "character") {
-        alert("キャラではありません");
-        return;
-      }
-      const availableCost = p.costZone.length;
-      if (availableCost < card.cost) {
-        alert("コストが足りません");
-        return;
-      }
-      p.hand.splice(handIndex, 1);
-      p.board.push({ cardId, rested: false, damage: 0 });
-      logMessage(`${p.name} はキャラ「${card.name}」(コスト${card.cost}) を場に出した`);
-      render();
-    }
+  document.getElementById("turnInfo").textContent =
+    `現在：${gameState.players[gameState.current].name}`;
 
-    function playSpell(playerIndex, handIndex) {
-      if (gameState.winner !== null) return;
-      if (playerIndex !== gameState.currentPlayer) return;
-      const p = gameState.players[playerIndex];
-      const cardId = p.hand[handIndex];
-      const card = cards[cardId];
-      if (card.type !== "magic" && card.type !== "song") {
-        alert("マジック/ソングではありません");
-        return;
-      }
-      const availableCost = p.costZone.length;
-      if (availableCost < card.cost) {
-        alert("コストが足りません（ソング踏み倒しは未実装）");
-        return;
-      }
+  document.getElementById("log").innerHTML =
+    gameState.log.map(l=>`・${l}`).join("<br>");
+}
 
-      // ★ ここに ability ごとの処理を今後追加していける
-      // 例：if (card.ability === "destroyAllCharacters") { ... }
-
-      p.hand.splice(handIndex, 1);
-      p.grave.push(cardId);
-      logMessage(`${p.name} は ${card.type === "song" ? "ソング" : "マジック"}「${card.name}」を使用（効果はまだ未実装）`);
-      render();
-    }
-
-    // --- クエスト（ロア獲得） -------------------------------------
-    function questCharacter(playerIndex, boardIndex) {
-      if (gameState.winner !== null) return;
-      if (playerIndex !== gameState.currentPlayer) return;
-      const p = gameState.players[playerIndex];
-      const b = p.board[boardIndex];
-      if (!b) return;
-      if (b.rested) {
-        alert("すでにレストしています");
-        return;
-      }
-      const card = cards[b.cardId];
-      p.lore += card.lore;
-      b.rested = true;
-      logMessage(`${p.name} の「${card.name}」がクエストし、ロア${card.lore}獲得！（合計ロア: ${p.lore}）`);
-      checkWinner();
-      render();
-    }
-
-    // --- バトル（チャレンジ） ---------------------------------------
-    function setAttacker(playerIndex, boardIndex) {
-      if (gameState.winner !== null) return;
-      if (playerIndex !== gameState.currentPlayer) return;
-      const p = gameState.players[playerIndex];
-      const b = p.board[boardIndex];
-      if (!b) return;
-      if (b.rested) {
-        alert("レストしているキャラは攻撃できません");
-        return;
-      }
-      const card = cards[b.cardId];
-      gameState.selectedAttacker = { playerIndex, boardIndex };
-      logMessage(`${p.name} の「${card.name}」をアタッカーに指定`);
-      render();
-    }
-
-    function challengeCharacter(targetPlayerIndex, targetBoardIndex) {
-      if (gameState.winner !== null) return;
-      const sel = gameState.selectedAttacker;
-      if (!sel) {
-        alert("先に自分のキャラを『アタッカーにする』で選んでください");
-        return;
-      }
-      if (sel.playerIndex !== gameState.currentPlayer) return;
-
-      const atkPlayer = gameState.players[sel.playerIndex];
-      const defPlayer = gameState.players[targetPlayerIndex];
-      const atkBoard = atkPlayer.board;
-      const defBoard = defPlayer.board;
-
-      const atk = atkBoard[sel.boardIndex];
-      const def = defBoard[targetBoardIndex];
-      if (!atk) {
-        alert("アタッカーが存在しません");
-        gameState.selectedAttacker = null;
-        render();
-        return;
-      }
-      if (!def) {
-        alert("ターゲットが存在しません");
-        return;
-      }
-      if (atk.rested) {
-        alert("レストしているキャラは攻撃できません");
-        return;
-      }
-
-      const atkCard = cards[atk.cardId];
-      const defCard = cards[def.cardId];
-
-      // 同時ダメージ
-      atk.damage += defCard.strength;
-      def.damage += atkCard.strength;
-      atk.rested = true;
-
-      logMessage(`${atkPlayer.name} の「${atkCard.name}」が、${defPlayer.name} の「${defCard.name}」にチャレンジ！`);
-
-      // バニッシュ判定
-      if (def.damage >= defCard.willpower) {
-        defBoard.splice(targetBoardIndex, 1);
-        defPlayer.grave.push(def.cardId);
-        logMessage(`${defPlayer.name} の「${defCard.name}」はバニッシュされた`);
-      }
-      if (atk.damage >= atkCard.willpower) {
-        atkBoard.splice(sel.boardIndex, 1);
-        atkPlayer.grave.push(atk.cardId);
-        logMessage(`${atkPlayer.name} の「${atkCard.name}」もバニッシュされた`);
-      }
-
-      gameState.selectedAttacker = null;
-      render();
-    }
-
-    // --- 勝利判定 ---------------------------------------------------
-    function checkWinner() {
-      if (gameState.winner !== null) return;
-      for (let i = 0; i < 2; i++) {
-        const p = gameState.players[i];
-        if (p.lore >= 15) {
-          gameState.winner = i;
-          logMessage(`${p.name} がロア15に到達！ 勝利！`);
-          alert(`${p.name} の勝ち！`);
-        }
-      }
-    }
-
-    // --- ターン処理 -------------------------------------------------
-    function endTurn() {
-      if (gameState.winner !== null) return;
-      gameState.currentPlayer = gameState.currentPlayer === 0 ? 1 : 0;
-      gameState.selectedAttacker = null;
-
-      const p = gameState.players[gameState.currentPlayer];
-      p.board.forEach(b => { b.rested = false; });
-
-      logMessage(`ターン終了。次は「${p.name}」のターン`);
-      render();
-    }
-
-    // ===== 画面描画 =================================================
-    function render() {
-      renderPlayer(0);
-      renderPlayer(1);
-      renderControls();
-      renderLog();
-    }
-
-    function renderPlayer(index) {
-      const p = gameState.players[index];
-      const container = document.getElementById("player" + index);
-      const isCurrent = index === gameState.currentPlayer;
-      const colorLabel = index === 0 ? "（赤デッキ）" : "（紫デッキ）";
-
-      let html = "";
-      html += `<div class="player-header">`;
-      html += `<span>${p.name} ${colorLabel}</span>`;
-      html += `<span>ロア: ${p.lore}｜コスト: ${p.costZone.length}｜山札: ${p.deck.length}｜手札: ${p.hand.length}</span>`;
-      html += `<span class="active-label ${isCurrent ? "active" : ""}">${isCurrent ? "このプレイヤーのターン" : ""}</span>`;
-      html += `</div>`;
-
-      // コストゾーン
-      html += `<div class="zone-title">コストゾーン (${p.costZone.length})</div><div class="zone">`;
-      p.costZone.forEach((cardId) => {
-        const c = cards[cardId];
-        html += `<div class="card ${c.color === "red" ? "card-red" : "card-purple"}">`;
-        html += `<div class="card-name">${c.name}</div>`;
-        html += `<div class="card-type">[${c.type}]</div>`;
-        html += `<div class="card-stats">コスト:${c.cost}</div>`;
-        html += `</div>`;
-      });
-      html += `</div>`;
-
-      // 場のキャラ
-      html += `<div class="zone-title">場のキャラ (${p.board.length})</div><div class="zone">`;
-      p.board.forEach((b, bi) => {
-        const c = cards[b.cardId];
-        const stateText = b.rested ? "状態: レスト" : "状態: レディ";
-        const dmgText = b.damage > 0 ? ` / ダメージ:${b.damage}` : "";
-        html += `<div class="card ${c.color === "red" ? "card-red" : "card-purple"}">`;
-        html += `<div class="card-name">${c.name}</div>`;
-        html += `<div class="card-type">[キャラ]</div>`;
-        html += `<div class="card-stats">コスト:${c.cost} / ${c.strength}/${c.willpower} / ロア:${c.lore}</div>`;
-        html += `<div class="card-stats">${stateText}${dmgText}</div>`;
-
-        // 自分のキャラ：クエスト＆アタッカー指定
-        if (gameState.winner === null && index === gameState.currentPlayer && !b.rested) {
-          html += `<button class="board-btn" onclick="questCharacter(${index}, ${bi})">クエスト</button>`;
-          html += `<button class="board-btn" onclick="setAttacker(${index}, ${bi})">アタッカーにする</button>`;
-        }
-
-        // 相手のキャラ：攻撃対象ボタン
-        const sel = gameState.selectedAttacker;
-        if (
-          gameState.winner === null &&
-          sel &&
-          sel.playerIndex === gameState.currentPlayer &&
-          index !== gameState.currentPlayer
-        ) {
-          html += `<button class="board-btn" onclick="challengeCharacter(${index}, ${bi})">このキャラを攻撃</button>`;
-        }
-
-        html += `</div>`;
-      });
-      html += `</div>`;
-
-      // 手札
-      html += `<div class="zone-title">手札 (${p.hand.length})</div><div class="zone">`;
-      p.hand.forEach((cardId, i) => {
-        const c = cards[cardId];
-        html += `<div class="card hand-card ${c.color === "red" ? "card-red" : "card-purple"}">`;
-        html += `<div class="card-name">${c.name}</div>`;
-        html += `<div class="card-type">[${c.type}] コスト:${c.cost}</div>`;
-        if (index === gameState.currentPlayer && gameState.winner === null) {
-          if (c.type === "character") {
-            html += `<button onclick="playCardAsCost(${index}, ${i})">コストに埋める</button>`;
-            html += `<button onclick="playCharacter(${index}, ${i})">キャラとして出す</button>`;
-          } else if (c.type === "magic" || c.type === "song") {
-            html += `<button onclick="playCardAsCost(${index}, ${i})">コストに埋める</button>`;
-            html += `<button onclick="playSpell(${index}, ${i})">${c.type === "song" ? "ソングを使う" : "マジックを使う"}</button>`;
-          }
-        }
-        html += `</div>`;
-      });
-      html += `</div>`;
-
-      container.innerHTML = html;
-    }
-
-    function renderControls() {
-      const drawBtn = document.getElementById("drawBtn");
-      const endBtn = document.getElementById("endTurnBtn");
-      const info = document.getElementById("turnInfo");
-      const atkInfo = document.getElementById("attackerInfo");
-      const p = gameState.players[gameState.currentPlayer];
-
-      if (gameState.winner !== null) {
-        drawBtn.disabled = true;
-        endBtn.disabled = true;
-        info.textContent = `ゲーム終了：${gameState.players[gameState.winner].name} の勝ち`;
-        atkInfo.textContent = "⟳ を押すと再読み込みできます";
-      } else {
-        drawBtn.disabled = false;
-        endBtn.disabled = false;
-        info.textContent = `現在のターン: ${p.name}`;
-        const sel = gameState.selectedAttacker;
-        if (sel) {
-          const atk = gameState.players[sel.playerIndex].board[sel.boardIndex];
-          const c = atk ? cards[atk.cardId] : null;
-          atkInfo.textContent = c ? `アタッカー: ${c.name}` : "";
-        } else {
-          atkInfo.textContent = "";
-        }
-      }
-    }
-
-    function renderLog() {
-      const logDiv = document.getElementById("log");
-      logDiv.innerHTML = gameState.log
-        .map((line) => `<div class="log-line">・${line}</div>`)
-        .join("");
-      logDiv.scrollTop = logDiv.scrollHeight;
-    }
-
-    window.onload = initGame;
-  </script>
+// 初期ドロー
+gameState.players.forEach(p=>{for(let i=0;i<5;i++)drawForCurrent();});
+render();
+</script>
 </body>
 </html>
-
