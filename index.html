@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -43,13 +42,6 @@
      padding: 4px 8px;
      font-size: 12px;
      margin: 2px 4px 0 0;
-   }
-
-   .topbar {
-     display: flex;
-     justify-content: space-between;
-     font-size: 12px;
-     margin-bottom: 8px;
    }
 
    .card-box {
@@ -162,6 +154,12 @@
 
    /* 行動済み */
    .card.rest { opacity: 0.6; }
+
+   /* 凍結中の見た目 */
+   .card.frozen {
+     box-shadow: 0 0 10px rgba(0,255,255,0.8);
+     border-color: #00ffff;
+   }
 
    /* 色別 */
    .card.red {
@@ -406,7 +404,7 @@
 
          <div class="status-buttons">
            <button id="btnDraw" class="btn small" onclick="playerDraw()">ドロー</button>
-           <button id="endTurnBtn" class="btn small" onclick="endTurn()">ターン終了</button>
+           <button class="btn small" onclick="endTurn()">ターン終了</button>
          </div>
        </div>
 
@@ -529,7 +527,7 @@ function makeCardInstance(base) {
  c.maxHp = base.hp;
  c.rest = false;
  c.summonTurn = -1;
- c.skipReadyTurn = 0;
+ c.skipReadyTurn = 0; // このターン数までレディしない（凍結用）
  return c;
 }
 
@@ -805,6 +803,9 @@ function selectPlayerDeck(mode) {
 /* ========== バトル ========== */
 let battle = null;
 let pendingChallenge = null;
+
+// 覚醒エルサの効果選択状態
+// { step:1 or 2, selectedIndices:[...] }
 let elsaEffectState = null;
 
 function shuffle(arr) {
@@ -1017,7 +1018,9 @@ function updateBattleView() {
 
  const pf = document.getElementById("playerField");
  pf.innerHTML = p.field.map((card, idx) => `
-   <div class="card ${card.color || ''} ${card.rest ? 'rest' : ''}"
+   <div class="card ${card.color || ''} ${card.rest ? 'rest' : ''} ${
+     card.skipReadyTurn && card.skipReadyTurn >= battle.turnCount ? 'frozen' : ''
+   }"
         onclick="onPlayerFieldClick(${idx})">
      <div class="card-header">
        <span class="card-cost">${card.cost}</span>
@@ -1037,7 +1040,10 @@ function updateBattleView() {
        ${
          card.type === "song"
            ? "song（スペル）"
-           : ("character" + (card.evade ? " / 回避" : ""))
+           : ("character"
+              + (card.evade ? " / 回避" : "")
+              + (card.skipReadyTurn && card.skipReadyTurn >= battle.turnCount ? " / 凍結中" : "")
+             )
        }
      </div>
    </div>
@@ -1045,7 +1051,9 @@ function updateBattleView() {
 
  const cf = document.getElementById("cpuField");
  cf.innerHTML = c.field.map((card, idx) => `
-   <div class="card ${card.color || ''} ${card.rest ? 'rest' : ''}"
+   <div class="card ${card.color || ''} ${card.rest ? 'rest' : ''} ${
+     card.skipReadyTurn && card.skipReadyTurn >= battle.turnCount ? 'frozen' : ''
+   }"
         onclick="onCpuFieldClick(${idx})">
      <div class="card-header">
        <span class="card-cost">${card.cost}</span>
@@ -1065,7 +1073,10 @@ function updateBattleView() {
        ${
          card.type === "song"
            ? "song"
-           : ("character" + (card.evade ? " / 回避" : ""))
+           : ("character"
+              + (card.evade ? " / 回避" : "")
+              + (card.skipReadyTurn && card.skipReadyTurn >= battle.turnCount ? " / 凍結中" : "")
+             )
        }
      </div>
    </div>
@@ -1154,14 +1165,15 @@ function triggerElsaEffect() {
  const c = battle.cpu;
  if (!c.field.length) {
    addLog("覚醒エルサの効果：相手のキャラがいないため、何も起こらなかった。");
+   alert("覚醒エルサの効果を使いましたが、対象のキャラがいません。");
    return;
  }
 
- addLog("覚醒エルサの効果：相手キャラを最大2体までレストし、次のターンもレディしない。");
+ addLog("覚醒エルサの効果：相手キャラを最大2体まで凍結（レスト＆次ターンも行動不可）します。");
 
  elsaEffectState = {
-   selected: [null, null],
-   activeSlot: 0
+   step: 1,
+   selectedIndices: []
  };
 
  const area = document.getElementById("actionArea");
@@ -1169,44 +1181,15 @@ function triggerElsaEffect() {
    area.innerHTML = `
      <div style="margin-bottom:4px;">
        覚醒エルサの効果：<br>
-       「レストさせて次のターン動かせなくなるキャラ」を
-       最大2体まで選んでください。<br>
-       ボタンを押したあと、相手フィールドのキャラをタップして選択します。
+       1体目のキャラを選択します。<br>
+       相手フィールドのカードをタップしてください。
      </div>
-     <button class="btn small" onclick="startElsaSelect(1)">1体目を選択</button>
-     <button class="btn small" onclick="startElsaSelect(2)">2体目を選択</button>
-     <button class="btn small" onclick="finishElsaSelect()">選択終了</button>
+     <button class="btn small" onclick="cancelElsaEffect()">選択終了</button>
    `;
  }
 }
 
-function startElsaSelect(slot) {
- if (!battle) return;
- const c = battle.cpu;
- if (!c.field.length) {
-   alert("相手のキャラがいません。");
-   return;
- }
- if (!elsaEffectState) {
-   elsaEffectState = { selected:[null,null], activeSlot:0 };
- }
- elsaEffectState.activeSlot = slot;
-
- const area = document.getElementById("actionArea");
- if (area) {
-   area.innerHTML = `
-     <div style="margin-bottom:4px;">
-       覚醒エルサの効果：${slot}体目の対象を選択中です。<br>
-       相手フィールドのキャラをタップしてください。
-     </div>
-     <button class="btn small" onclick="startElsaSelect(1)">1体目を選択</button>
-     <button class="btn small" onclick="startElsaSelect(2)">2体目を選択</button>
-     <button class="btn small" onclick="finishElsaSelect()">選択終了</button>
-   `;
- }
-}
-
-function finishElsaSelect() {
+function cancelElsaEffect() {
  elsaEffectState = null;
  const area = document.getElementById("actionArea");
  if (area) {
@@ -1233,7 +1216,7 @@ function triggerElsaEffectCpu() {
    const card = p.field[idx];
    card.rest = true;
    card.skipReadyTurn = battle.turnCount + 1;
-   addLog(`CPUの覚醒エルサの効果で「${card.name}」がレストされ、次のターンもレディしない。`);
+   addLog(`CPUの覚醒エルサの効果で「${card.name}」がレストされ、次のターンもレディしない。（凍結中）`);
  });
 }
 
@@ -1266,7 +1249,9 @@ function onPlayerFieldClick(index) {
        ATK:${card.atk} / HP:${card.hp}/${card.maxHp} / ロア:${card.lore || 0}
      </div>
      <div class="card-stats">
-       種類:${card.type}${card.evade ? " / 回避" : ""}
+       種類:${card.type}${card.evade ? " / 回避" : ""}${
+         card.skipReadyTurn && card.skipReadyTurn >= battle.turnCount ? " / 凍結中" : ""
+       }
      </div>
    </div>
  `;
@@ -1301,33 +1286,49 @@ function onCpuFieldClick(index) {
  const card = c.field[index];
  if (!card) return;
 
- if (elsaEffectState && elsaEffectState.activeSlot) {
-   const slot = elsaEffectState.activeSlot;
-   const pos  = slot - 1;
+ // 覚醒エルサ効果で対象選択中
+ if (elsaEffectState) {
+   const step = elsaEffectState.step;
+   const selected = elsaEffectState.selectedIndices;
 
-   elsaEffectState.selected[pos] = index;
+   if (selected.includes(index)) {
+     alert("このキャラはすでに覚醒エルサの効果で選択済みです。");
+     return;
+   }
 
    card.rest = true;
    card.skipReadyTurn = battle.turnCount + 1;
 
-   addLog(`覚醒エルサの効果で「${card.name}」を${slot}体目の対象としてレストし、次のターンもレディしない。`);
+   addLog(`覚醒エルサの効果で「${card.name}」を${step}体目の対象として凍結させた。（次の相手ターンも行動不可）`);
 
-   elsaEffectState.activeSlot = 0;
-   updateBattleView();
+   selected.push(index);
 
-   const area2 = document.getElementById("actionArea");
-   if (area2) {
-     area2.innerHTML = `
-       <div style="margin-bottom:4px;">
-         覚醒エルサの効果：${slot}体目に「${card.name}」を選びました。<br>
-         続けて「1体目」または「2体目」のボタンを押して別のキャラを選ぶか、<br>
-         「選択終了」を押してください。
-       </div>
-       <button class="btn small" onclick="startElsaSelect(1)">1体目を選択</button>
-       <button class="btn small" onclick="startElsaSelect(2)">2体目を選択</button>
-       <button class="btn small" onclick="finishElsaSelect()">選択終了</button>
-     `;
+   const areaSel = document.getElementById("actionArea");
+   // 2体選んだ or それ以上選べるキャラがない
+   if (selected.length >= 2 || c.field.length <= selected.length) {
+     elsaEffectState = null;
+     if (areaSel) {
+       areaSel.innerHTML = `
+         <div>
+           覚醒エルサの効果の対象選択を終了しました。<br>
+           凍結中のキャラには「凍結中」マークが表示されています。
+         </div>
+       `;
+     }
+   } else {
+     elsaEffectState.step = 2;
+     if (areaSel) {
+       areaSel.innerHTML = `
+         <div style="margin-bottom:4px;">
+           覚醒エルサの効果：2体目のキャラを選択します。<br>
+           相手フィールドの別のカードをタップしてください。
+         </div>
+         <button class="btn small" onclick="cancelElsaEffect()">選択終了</button>
+       `;
+     }
    }
+
+   updateBattleView();
    return;
  }
 
@@ -1339,7 +1340,9 @@ function onCpuFieldClick(index) {
        ATK:${card.atk} / HP:${card.hp}/${card.maxHp} / ロア:${card.lore || 0}
      </div>
      <div class="card-stats">
-       種類:${card.type}${card.evade ? " / 回避" : ""}（相手のキャラ）
+       種類:${card.type}${card.evade ? " / 回避" : ""}${
+         card.skipReadyTurn && card.skipReadyTurn >= battle.turnCount ? " / 凍結中" : ""
+       }（相手のキャラ）
      </div>
    </div>
  `;
@@ -1511,7 +1514,7 @@ function playFromHand(index) {
  if (card.name === "覚醒エルサ" && typeof card.transformCost === "number") {
    const candidates = p.field
      .map((c,idx) => ({ card:c, idx }))
-     .filter(obj => obj.card.type === "character" && obj.card.name.includes("エルサ"));
+     .filter(obj => obj.card.type === "character" && obj.card.cardNameIncludesElsaChecked !== false && obj.card.name.includes("エルサ"));
 
    if (candidates.length > 0 && p.inkAvail >= card.transformCost) {
      const useTransform = confirm(`同名のキャラがいるので、変身コスト${card.transformCost}で出しますか？\n（OKで変身 / キャンセルで通常コスト${card.cost}）`);
