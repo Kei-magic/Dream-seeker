@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -6,145 +7,6 @@
  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
  <style>
    * { box-sizing: border-box; }
-
-   /* CPUの場 / 自分の場 / 手札 を横並びスクロールにする */
-   #cpuField,
-   #playerField,
-   #playerHand {
-     display: flex;
-     align-items: flex-start;
-     gap: 12px;
-     overflow-x: auto;
-     padding: 8px 0;
-     min-height: 160px;
-     -webkit-overflow-scrolling: touch;
-   }
-
-   /* 共通カード見た目（カード型） */
-   .card {
-     flex: 0 0 auto;
-     width: 96px;
-     height: 160px;
-     border-radius: 10px;
-     border: 3px solid #555;
-     background: #b30000;
-     color: #ffffff;
-     font-size: 10px;
-     box-sizing: border-box;
-     padding: 4px;
-     display: flex;
-     flex-direction: column;
-     justify-content: flex-start;
-     cursor: pointer;
-     transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
-   }
-
-   .card:hover {
-     transform: translateY(-2px);
-     box-shadow: 0 0 8px rgba(255,255,255,0.3);
-   }
-
-   /* 行動済みキャラの雰囲気（rest） */
-   .card.rest {
-     opacity: 0.6;
-   }
-
-   /* カラー別 */
-   .card.red {
-     border-color: #e74c3c;
-     background: #8b1a1a;
-   }
-   .card.purple {
-     border-color: #9b59b6;
-     background: #4b2b63;
-   }
-   .card.blue {
-     border-color: #3498db;
-     background: #1f3f5f;
-   }
-   .card.yellow {
-     border-color: #f1c40f;
-     background: #866d07;
-   }
-   .card.white {
-     border-color: #ecf0f1;
-     background: #aaaaaa;
-   }
-   .card.green {
-     border-color: #2ecc71;
-     background: #145437;
-   }
-
-   /* カード内部レイアウト */
-   .card-header {
-     display: flex;
-     align-items: center;
-     justify-content: space-between;
-     background: #000000;
-     border-radius: 4px;
-     padding: 2px 3px;
-     margin-bottom: 3px;
-     font-weight: bold;
-   }
-
-   .card-cost {
-     min-width: 16px;
-     text-align: center;
-   }
-
-   .card-name {
-     flex: 1;
-     text-align: center;
-     font-size: 9px;
-   }
-
-   .card-inkable {
-     min-width: 16px;
-     text-align: center;
-   }
-
-   /* イラスト枠（今は空） */
-   .card-illust {
-     flex: 1;
-     background: #ffffff;
-     border-radius: 4px;
-     margin-bottom: 3px;
-   }
-
-   /* ATK / HP / ロア */
-   .card-stats-row {
-     display: flex;
-     justify-content: space-between;
-     font-size: 9px;
-     padding: 0 2px;
-     margin-bottom: 3px;
-   }
-
-   .card-power { font-weight: bold; }
-   .card-lore  { font-size: 9px; }
-
-   /* カード下部（種別とか簡易的なテキスト） */
-   .card-footer {
-     background: #000000;
-     border-radius: 4px;
-     padding: 2px 3px;
-     font-size: 9px;
-   }
-
-   /* 手札用のボタンエリア */
-   .card-footer-buttons {
-     display: flex;
-     gap: 2px;
-     margin-top: 2px;
-   }
-
-   /* カード内の小さいボタン */
-   .card-footer-buttons .btn.small {
-     width: auto;
-     padding: 2px 4px;
-     font-size: 9px;
-     margin: 0;
-   }
 
    body {
      margin: 0;
@@ -198,8 +60,8 @@
      font-size: 12px;
      background: #202020;
    }
-   .card-box .card-name  { font-weight: bold; }
-   .card-box .card-stats { font-size: 11px; opacity: 0.9; margin-top: 2px; }
+   .card-name  { font-weight: bold; }
+   .card-stats { font-size: 11px; opacity: 0.9; margin-top: 2px; }
 
    .red    { border-color: #e74c3c; }
    .purple { border-color: #9b59b6; }
@@ -243,13 +105,12 @@
    }
 
    /* ===== バトル画面用 ===== */
-   .battle-screen {
-     padding: 16px;
-   }
+
+   .battle-screen { padding: 16px; }
 
    .enemy-title {
      text-align: center;
-     font-size: 24px;
+     font-size: 20px;
      margin-bottom: 8px;
    }
 
@@ -257,12 +118,133 @@
      display: flex;
      justify-content: space-around;
      margin-bottom: 16px;
-     font-size: 14px;
+     font-size: 12px;
+   }
+
+   /* フィールド / 手札（横スクロール） */
+   .field,
+   .hand-area {
+     display: flex;
+     align-items: flex-start;
+     gap: 12px;
+     margin-bottom: 16px;
+     min-height: 150px;
+     overflow-x: auto;
+     overflow-y: visible;
+     padding-bottom: 8px;
+     -webkit-overflow-scrolling: touch;
+     justify-content: flex-start;
+   }
+
+   /* カード共通見た目 */
+   .card {
+     flex: 0 0 auto;
+     width: 96px;
+     height: 160px;
+     border-radius: 10px;
+     border: 3px solid #555;
+     background: #b30000;
+     color: #ffffff;
+     font-size: 10px;
+     box-sizing: border-box;
+     padding: 4px;
+     display: flex;
+     flex-direction: column;
+     justify-content: flex-start;
+     cursor: pointer;
+     transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+   }
+
+   .card:hover {
+     transform: translateY(-2px);
+     box-shadow: 0 0 8px rgba(255,255,255,0.3);
+   }
+
+   /* 行動済み */
+   .card.rest { opacity: 0.6; }
+
+   /* 色別 */
+   .card.red {
+     border-color: #e74c3c;
+     background: #8b1a1a;
+   }
+   .card.purple {
+     border-color: #9b59b6;
+     background: #4b2b63;
+   }
+   .card.blue {
+     border-color: #3498db;
+     background: #1f3f5f;
+   }
+   .card.yellow {
+     border-color: #f1c40f;
+     background: #866d07;
+   }
+   .card.white {
+     border-color: #ecf0f1;
+     background: #aaaaaa;
+     color: #000;
+   }
+   .card.green {
+     border-color: #2ecc71;
+     background: #145437;
+   }
+
+   .card-header {
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     background: #000000;
+     border-radius: 4px;
+     padding: 2px 3px;
+     margin-bottom: 3px;
+     font-weight: bold;
+   }
+
+   .card-cost {
+     min-width: 16px;
+     text-align: center;
+   }
+
+   .card-name-header {
+     flex: 1;
+     text-align: center;
+     font-size: 9px;
+   }
+
+   .card-inkable {
+     min-width: 16px;
+     text-align: center;
+   }
+
+   .card-illust {
+     flex: 1;
+     background: #ffffff;
+     border-radius: 4px;
+     margin-bottom: 3px;
+   }
+
+   .card-stats-row {
+     display: flex;
+     justify-content: space-between;
+     font-size: 9px;
+     padding: 0 2px;
+     margin-bottom: 3px;
+   }
+
+   .card-power { font-weight: bold; }
+   .card-lore  { font-size: 9px; }
+
+   .card-footer {
+     background: #000000;
+     border-radius: 4px;
+     padding: 2px 3px;
+     font-size: 9px;
    }
 
    .divider {
      border-top: 3px dashed #ffffff;
-     margin: 24px 0;
+     margin: 16px 0;
    }
 
    .bottom-ui {
@@ -279,7 +261,7 @@
      border: 3px solid #ffffff;
      box-sizing: border-box;
      padding: 8px;
-     font-size: 14px;
+     font-size: 13px;
    }
 
    .status-box-title,
@@ -305,6 +287,31 @@
      padding: 4px 8px;
    }
 
+   /* 勝利オーバーレイ */
+   .win-overlay {
+     position: fixed;
+     inset: 0;
+     background: rgba(0,0,0,0.7);
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     z-index: 9999;
+   }
+   .win-overlay.hidden { display: none; }
+
+   .win-dialog {
+     background: #222;
+     border-radius: 10px;
+     padding: 16px;
+     max-width: 320px;
+     text-align: center;
+     border: 2px solid #fff;
+   }
+   .win-dialog-message {
+     margin-bottom: 12px;
+     font-size: 16px;
+     font-weight: bold;
+   }
  </style>
 </head>
 <body>
@@ -350,8 +357,14 @@
  <button id="btnPlayerDefault" class="btn" onclick="selectPlayerDeck('default')">
    デフォルト赤デッキ
  </button>
- <button id="btnPlayerCustom" class="btn" onclick="selectPlayerDeck('custom')">
-   デッキ編集で保存したデッキ（なし）
+ <button id="btnDeck1" class="btn" onclick="selectPlayerDeck('slot1')">
+   デッキ1（未保存）
+ </button>
+ <button id="btnDeck2" class="btn" onclick="selectPlayerDeck('slot2')">
+   デッキ2（未保存）
+ </button>
+ <button id="btnDeck3" class="btn" onclick="selectPlayerDeck('slot3')">
+   デッキ3（未保存）
  </button>
 
  <button class="btn primary" onclick="startBattle()">バトル開始</button>
@@ -393,22 +406,32 @@
 
          <div class="status-buttons">
            <button id="btnDraw" class="btn small" onclick="playerDraw()">ドロー</button>
-           <button id="inkBtn" class="btn small" onclick="inkFromHandSelected()">選択カードをインクにする</button>
            <button id="endTurnBtn" class="btn small" onclick="endTurn()">ターン終了</button>
          </div>
        </div>
 
        <div class="effect-box">
          <div class="effect-box-title">タップしたカードの情報 / 行動</div>
-         <div id="actionArea"></div>
+         <div id="actionArea">ここにカード情報が表示されます</div>
        </div>
      </div>
 
      <div class="section-title">ログ</div>
      <div id="log" class="log"></div>
 
+     <button class="btn danger" onclick="quitBattleToMenu()">
+       バトルをやめてメニューに戻る
+     </button>
    </div>
 
+ </div>
+
+ <!-- 勝利演出 -->
+ <div id="winOverlay" class="win-overlay hidden">
+   <div class="win-dialog">
+     <div id="winMessage" class="win-dialog-message">勝利！</div>
+     <button class="btn primary" onclick="returnToMenuFromBattle()">メニューに戻る</button>
+   </div>
  </div>
 </div>
 
@@ -435,11 +458,20 @@
 <!-- ===== デッキ編集 ===== -->
 <div id="deckScreen" class="screen">
  <h2>デッキ編集</h2>
+
+ <div class="section-title">編集するデッキスロット</div>
+ <div class="row">
+   <button id="editDeck1" class="btn small" onclick="setCurrentDeckSlot(0)">デッキ1</button>
+   <button id="editDeck2" class="btn small" onclick="setCurrentDeckSlot(1)">デッキ2</button>
+   <button id="editDeck3" class="btn small" onclick="setCurrentDeckSlot(2)">デッキ3</button>
+ </div>
+
  <p style="font-size:12px; opacity:0.8;">
-   所持カードからデッキに入れる枚数を決めてください。保存したデッキはバトルで「自分の使用デッキ」で選べます。
+   所持カードからデッキに入れる枚数を決めてください。<br>
+   デッキは最大3つまで保存でき、バトル開始時に選択できます。
  </p>
  <div id="deckCardList"></div>
- <button class="btn primary" onclick="saveDeck()">この内容でデッキを保存</button>
+ <button class="btn primary" onclick="saveDeck()">このスロットにデッキを保存</button>
  <button class="btn danger" onclick="showScreen('menu')">← メニューに戻る</button>
 </div>
 
@@ -471,6 +503,13 @@ function showScreen(name) {
 }
 
 /* ========== カード定義 ========== */
+/*
+ 新能力:
+ - 変身: 覚醒エルサのみ。transformCost:6
+ - 回避: evade:true
+ - 終焉の大火: type:"song" 全キャラ破壊
+*/
+
 const cards = [
  {id:0, name:"カー",   color:"red",    type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
  {id:1, name:"ルパプ", color:"purple", type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
@@ -478,9 +517,10 @@ const cards = [
  {id:3, name:"ロイエ", color:"yellow", type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
  {id:4, name:"ローシ", color:"white",  type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
  {id:5, name:"ドリミ", color:"green",  type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
- {id:6, name:"終焉の大火",            color:"red",    type:"song",      cost:7, atk:0, hp:0, lore:0, rarity:"SR", inkable:false},
- {id:7, name:"覚醒エルサ",            color:"purple", type:"character", cost:8, atk:4, hp:6, lore:2, rarity:"L",  inkable:false},
- {id:8, name:"伝説の勇者イフリート",  color:"red",    type:"character", cost:7, atk:5, hp:5, lore:2, rarity:"L",  inkable:false}
+
+ {id:6, name:"終焉の大火",          color:"red",    type:"song",      cost:7, atk:0, hp:0, lore:0, rarity:"SR", inkable:false},
+ {id:7, name:"覚醒エルサ",          color:"purple", type:"character", cost:8, atk:4, hp:6, lore:3, rarity:"L",  inkable:false, transformCost:6},
+ {id:8, name:"伝説の勇者イフリート", color:"red",    type:"character", cost:8, atk:5, hp:5, lore:4, rarity:"L",  inkable:true,  evade:true}
 ];
 
 function makeCardInstance(base) {
@@ -489,23 +529,43 @@ function makeCardInstance(base) {
  c.maxHp = base.hp;
  c.rest = false;
  c.summonTurn = -1;
+ c.skipReadyTurn = 0;
  return c;
 }
 
 /* ========== セーブデータ ========== */
 let stones = 0;
 let collection = {};
-let savedDeck = [];
+let savedDecks = [[],[],[]];
+let currentDeckSlot = 0;
 
 function loadData() {
  const s = localStorage.getItem("ds_stones");
  stones = s ? parseInt(s,10) : 0;
+
  const c = localStorage.getItem("ds_collection");
  collection = c ? JSON.parse(c) : {};
- const d = localStorage.getItem("ds_playerDeck");
- savedDeck = d ? JSON.parse(d) : [];
+
+ const dAll = localStorage.getItem("ds_playerDecks");
+ if (dAll) {
+   try {
+     const parsed = JSON.parse(dAll);
+     if (Array.isArray(parsed) && parsed.length === 3) {
+       savedDecks = parsed;
+     }
+   } catch(e){}
+ } else {
+   const dOld = localStorage.getItem("ds_playerDeck");
+   if (dOld) {
+     try {
+       savedDecks[0] = JSON.parse(dOld);
+     } catch(e){}
+   }
+ }
+
  updateStoneDisplays();
 }
+
 function saveStones() {
  localStorage.setItem("ds_stones", String(stones));
  updateStoneDisplays();
@@ -513,9 +573,10 @@ function saveStones() {
 function saveCollection() {
  localStorage.setItem("ds_collection", JSON.stringify(collection));
 }
-function savePlayerDeck() {
- localStorage.setItem("ds_playerDeck", JSON.stringify(savedDeck));
+function savePlayerDecks() {
+ localStorage.setItem("ds_playerDecks", JSON.stringify(savedDecks));
 }
+
 function updateStoneDisplays() {
  const v1 = document.getElementById("stoneCount");
  const v2 = document.getElementById("shopStoneCount");
@@ -607,9 +668,30 @@ function openCollection() {
 /* ========== デッキ編集 ========== */
 let deckCounts = {};
 
+function setCurrentDeckSlot(slot) {
+ currentDeckSlot = slot;
+ updateDeckSlotButtons();
+ buildDeckEditor();
+}
+
+function updateDeckSlotButtons() {
+ for (let i=0;i<3;i++) {
+   const btn = document.getElementById("editDeck"+(i+1));
+   if (!btn) continue;
+   btn.classList.toggle("toggle-selected", i === currentDeckSlot);
+ }
+}
+
 function openDeckBuilder() {
+ updateDeckSlotButtons();
+ buildDeckEditor();
+ showScreen("deck");
+}
+
+function buildDeckEditor() {
  deckCounts = {};
- savedDeck.forEach(id => {
+ const deck = savedDecks[currentDeckSlot] || [];
+ deck.forEach(id => {
    deckCounts[id] = (deckCounts[id] || 0) + 1;
  });
 
@@ -632,7 +714,6 @@ function openDeckBuilder() {
      </div>`;
  });
  area.innerHTML = html;
- showScreen("deck");
 }
 
 function changeDeckCount(cardId, diff) {
@@ -652,9 +733,9 @@ function saveDeck() {
    const id = parseInt(idStr,10);
    for (let i=0;i<cnt;i++) newDeck.push(id);
  });
- savedDeck = newDeck;
- savePlayerDeck();
- alert("デッキを保存しました！");
+ savedDecks[currentDeckSlot] = newDeck;
+ savePlayerDecks();
+ alert(`デッキ${currentDeckSlot+1}を保存しました！`);
 }
 
 /* ========== CPU設定 ========== */
@@ -686,26 +767,36 @@ function updateCpuButtons() {
    btn.classList.toggle("toggle-selected", cpuColor===c);
  });
 }
-function hasCustomDeck() {
- return savedDeck && savedDeck.length > 0;
+function hasDeckInSlot(slotIndex) {
+ const deck = savedDecks[slotIndex];
+ return deck && deck.length > 0;
 }
 function updatePlayerDeckButtons() {
  const btnDef = document.getElementById("btnPlayerDefault");
- const btnCus = document.getElementById("btnPlayerCustom");
- btnDef.classList.toggle("toggle-selected", playerDeckMode==="default");
- btnCus.classList.toggle("toggle-selected", playerDeckMode==="custom");
- if (!hasCustomDeck()) {
-   btnCus.disabled = true;
-   btnCus.textContent = "デッキ編集で保存したデッキ（なし）";
- } else {
-   btnCus.disabled = false;
-   btnCus.textContent = "デッキ編集で保存したデッキ";
+ const b1 = document.getElementById("btnDeck1");
+ const b2 = document.getElementById("btnDeck2");
+ const b3 = document.getElementById("btnDeck3");
+
+ if (btnDef) {
+   btnDef.classList.toggle("toggle-selected", playerDeckMode==="default");
  }
+ const arr = [b1,b2,b3];
+ ["slot1","slot2","slot3"].forEach((mode,idx) => {
+   const btn = arr[idx];
+   if (!btn) return;
+   const has = hasDeckInSlot(idx);
+   btn.disabled = !has;
+   btn.classList.toggle("toggle-selected", playerDeckMode===mode);
+   btn.textContent = has ? `デッキ${idx+1}` : `デッキ${idx+1}（未保存）`;
+ });
 }
 function selectPlayerDeck(mode) {
- if (mode==="custom" && !hasCustomDeck()) {
-   alert("まずデッキ編集でデッキを保存してください。");
-   return;
+ if (mode.startsWith("slot")) {
+   const idx = parseInt(mode.slice(-1),10) - 1;
+   if (!hasDeckInSlot(idx)) {
+     alert("まずデッキ編集でこのスロットにデッキを保存してください。");
+     return;
+   }
  }
  playerDeckMode = mode;
  updatePlayerDeckButtons();
@@ -713,7 +804,8 @@ function selectPlayerDeck(mode) {
 
 /* ========== バトル ========== */
 let battle = null;
-let pendingChallenge = null; // 攻撃に使う自分キャラの index
+let pendingChallenge = null;
+let elsaEffectState = null;
 
 function shuffle(arr) {
  for (let i=arr.length-1;i>0;i--) {
@@ -723,21 +815,22 @@ function shuffle(arr) {
 }
 
 function startBattle() {
- // プレイヤーデッキ
  let playerDeckCards = [];
- if (playerDeckMode === "custom" && hasCustomDeck()) {
-   savedDeck.forEach(id => {
+ if (playerDeckMode !== "default") {
+   const idx = parseInt(playerDeckMode.slice(-1),10) - 1;
+   const deckIds = savedDecks[idx] || [];
+   deckIds.forEach(id => {
      const base = cards.find(c => c.id===id);
      if (base) playerDeckCards.push(makeCardInstance(base));
    });
  }
+
  if (playerDeckCards.length === 0) {
    for (let i=0;i<24;i++) playerDeckCards.push(makeCardInstance(cards[0]));
    playerDeckCards.push(makeCardInstance(cards[6]));
    playerDeckCards.push(makeCardInstance(cards[8]));
  }
 
- // CPUデッキ
  let cpuDeckCards = [];
  const baseN  = cards.filter(c => c.rarity==="N"  && c.color===cpuColor);
  const baseSR = cards.filter(c => c.rarity==="SR" && (cpuStrength==="normal" || cpuStrength==="strong"));
@@ -755,6 +848,7 @@ function startBattle() {
  battle = {
    turn: "player",
    turnCount: 0,
+   gameOver: false,
    player: {
      deck: playerDeckCards,
      hand: [],
@@ -777,7 +871,6 @@ function startBattle() {
    }
  };
 
- // ★ 初期手札 7 枚
  for (let i=0;i<7;i++) {
    if (battle.player.deck.length) battle.player.hand.push(battle.player.deck.pop());
    if (battle.cpu.deck.length)    battle.cpu.hand.push(battle.cpu.deck.pop());
@@ -785,39 +878,67 @@ function startBattle() {
 
  clearLog();
  addLog("バトル開始！");
- showScreen("battle");
  startPlayerTurn();
+ showScreen("battle");
+}
+
+/* --- ターン管理 --- */
+
+function readyFieldCardsForSide(sideObj) {
+ sideObj.field.forEach(card => {
+   const skip = card.skipReadyTurn || 0;
+   if (skip >= battle.turnCount) {
+     card.rest = true;
+   } else {
+     card.rest = false;
+   }
+ });
 }
 
 function startPlayerTurn() {
+ if (!battle) return;
+ battle.turn = "player";
  battle.turnCount++;
+
  const p = battle.player;
  p.inkAvail = p.inkTotal;
  p.hasDrawn = false;
  p.hasInked = false;
- p.field.forEach(card => { card.rest = false; });
+
+ readyFieldCardsForSide(p);
+
  pendingChallenge = null;
- document.getElementById("actionArea").innerHTML = "まずドローしてください。";
- document.getElementById("turnInfo").textContent = "自分のターン";
+ elsaEffectState = null;
+
+ const turnInfo = document.getElementById("turnInfo");
+ if (turnInfo) turnInfo.textContent = "自分のターン";
+
+ const area = document.getElementById("actionArea");
+ if (area) area.textContent = "まずドローしてください。";
+
  updateBattleView();
 }
 
 function startCpuTurn() {
+ if (!battle) return;
+ battle.turn = "cpu";
  battle.turnCount++;
+
  const c = battle.cpu;
  c.inkAvail = c.inkTotal;
  c.hasDrawn = false;
  c.hasInked = false;
- c.field.forEach(card => { card.rest = false; });
 
- // ドロー
+ readyFieldCardsForSide(c);
+ pendingChallenge = null;
+ elsaEffectState = null;
+
  if (c.deck.length) {
    c.hand.push(c.deck.pop());
    c.hasDrawn = true;
    addLog("CPUは1枚ドローした。");
  }
 
- // インク1枚
  for (let i=0;i<c.hand.length;i++) {
    const card = c.hand[i];
    if (card.inkable) {
@@ -830,7 +951,6 @@ function startCpuTurn() {
    }
  }
 
- // 最大コストのカード1枚を出す
  let bestIndex = -1;
  let bestCost  = -1;
  c.hand.forEach((card,idx) => {
@@ -839,109 +959,133 @@ function startCpuTurn() {
      bestIndex = idx;
    }
  });
+
  if (bestIndex >= 0) {
    const card = c.hand[bestIndex];
    c.inkAvail -= card.cost;
-   card.summonTurn = battle.turnCount;
    c.hand.splice(bestIndex,1);
-   c.field.push(card);
-   addLog(`CPUは「${card.name}」を召喚した。`);
+
+   if (card.type === "song" && card.name === "終焉の大火") {
+     addLog(`CPUはソング「${card.name}」をプレイした！ フィールド上のすべてのキャラクターを破壊する。`);
+     wipeAllCharacters();
+   } else {
+     card.summonTurn = battle.turnCount;
+     card.rest = true;
+     c.field.push(card);
+     addLog(`CPUは「${card.name}」を召喚した。`);
+
+     if (card.name === "覚醒エルサ") {
+       triggerElsaEffectCpu();
+     }
+   }
  }
 
- // ロア+1（テスト）
  if (c.field.length) {
    c.lore += 1;
    addLog("CPUはロアを1得た。（テスト）");
  }
 
  updateBattleView();
- battle.turn = "player";
- startPlayerTurn();
+
+ if (battle && !battle.gameOver) {
+   startPlayerTurn();
+ }
 }
 
-/* --- 描画（カード型） --- */
+/* --- 描画 --- */
+
 function updateBattleView() {
  if (!battle) return;
  const p = battle.player;
  const c = battle.cpu;
 
- // ステータス
- const elPLore   = document.getElementById("playerLore");
- const elPInkCur = document.getElementById("playerInkCurrent");
- const elPInkMax = document.getElementById("playerInkMax");
- const elPDeck   = document.getElementById("playerDeck");
+ const pLore = document.getElementById("playerLore");
+ const pInkCur = document.getElementById("playerInkCurrent");
+ const pInkMax = document.getElementById("playerInkMax");
+ const pDeck = document.getElementById("playerDeck");
+ const cLore = document.getElementById("cLore");
+ const cDeck = document.getElementById("cDeck");
+ const cpuHand = document.getElementById("cpuHandCount");
 
- const elCLore   = document.getElementById("cLore");
- const elCDeck   = document.getElementById("cDeck");
- const elCpuHand = document.getElementById("cpuHandCount");
+ if (pLore)   pLore.textContent   = p.lore;
+ if (pInkCur) pInkCur.textContent = p.inkAvail;
+ if (pInkMax) pInkMax.textContent = p.inkTotal;
+ if (pDeck)   pDeck.textContent   = p.deck.length;
+ if (cLore)   cLore.textContent   = c.lore;
+ if (cDeck)   cDeck.textContent   = c.deck.length;
+ if (cpuHand) cpuHand.textContent = c.hand.length;
 
- if (elPLore)   elPLore.textContent   = p.lore;
- if (elPInkCur) elPInkCur.textContent = p.inkAvail;
- if (elPInkMax) elPInkMax.textContent = p.inkTotal;
- if (elPDeck)   elPDeck.textContent   = p.deck.length;
-
- if (elCLore)   elCLore.textContent   = c.lore;
- if (elCDeck)   elCDeck.textContent   = c.deck.length;
- if (elCpuHand) elCpuHand.textContent = c.hand.length;
-
- // 自分の場
  const pf = document.getElementById("playerField");
  pf.innerHTML = p.field.map((card, idx) => `
-   <div class="card ${card.color || ''} ${card.rest ? 'rest' : ''}" onclick="onPlayerFieldClick(${idx})">
+   <div class="card ${card.color || ''} ${card.rest ? 'rest' : ''}"
+        onclick="onPlayerFieldClick(${idx})">
      <div class="card-header">
        <span class="card-cost">${card.cost}</span>
-       <span class="card-name">${card.name}</span>
+       <span class="card-name-header">${card.name}</span>
        <span class="card-inkable">${card.inkable ? "⭕️" : "❌"}</span>
      </div>
      <div class="card-illust"></div>
      <div class="card-stats-row">
-       <span class="card-power">
-         ${card.type === "character" ? `${card.atk} / ${card.hp}/${card.maxHp}` : "スペル"}
-       </span>
+       <span class="card-power">${
+         card.type === "character"
+           ? `${card.atk} / ${card.hp}/${card.maxHp}`
+           : "スペル"
+       }</span>
        <span class="card-lore">${card.lore ? "ロア"+card.lore : ""}</span>
      </div>
      <div class="card-footer">
-       ${card.type === "song" ? "song（スペル）" : "character"}
+       ${
+         card.type === "song"
+           ? "song（スペル）"
+           : ("character" + (card.evade ? " / 回避" : ""))
+       }
      </div>
    </div>
  `).join("");
 
- // CPUの場
  const cf = document.getElementById("cpuField");
  cf.innerHTML = c.field.map((card, idx) => `
-   <div class="card ${card.color || ''}" onclick="onCpuFieldClick(${idx})">
+   <div class="card ${card.color || ''} ${card.rest ? 'rest' : ''}"
+        onclick="onCpuFieldClick(${idx})">
      <div class="card-header">
        <span class="card-cost">${card.cost}</span>
-       <span class="card-name">${card.name}</span>
+       <span class="card-name-header">${card.name}</span>
        <span class="card-inkable">敵</span>
      </div>
      <div class="card-illust"></div>
      <div class="card-stats-row">
-       <span class="card-power">
-         ${card.type === "character" ? `${card.atk} / ${card.hp}/${card.maxHp}` : "スペル"}
-       </span>
+       <span class="card-power">${
+         card.type === "character"
+           ? `${card.atk} / ${card.hp}/${card.maxHp}`
+           : "スペル"
+       }</span>
        <span class="card-lore">${card.lore ? "ロア"+card.lore : ""}</span>
      </div>
      <div class="card-footer">
-       ${card.type === "song" ? "song" : "character"}
+       ${
+         card.type === "song"
+           ? "song"
+           : ("character" + (card.evade ? " / 回避" : ""))
+       }
      </div>
    </div>
  `).join("");
 
- // 自分の手札
  const ph = document.getElementById("playerHand");
  ph.innerHTML = p.hand.map((card, idx) => `
    <div class="card ${card.color || ''}">
      <div class="card-header">
        <span class="card-cost">${card.cost}</span>
-       <span class="card-name">${card.name}</span>
+       <span class="card-name-header">${card.name}</span>
        <span class="card-inkable">${card.inkable ? "⭕️" : "❌"}</span>
      </div>
      <div class="card-illust"></div>
      <div class="card-stats-row">
-       <span class="card-power">
-         ${card.type === "character" ? `${card.atk} / ${card.hp}/${card.maxHp}` : "スペル"}
-       </span>
+       <span class="card-power">${
+         card.type === "character"
+           ? `${card.atk} / ${card.hp}/${card.maxHp}`
+           : "スペル"
+       }</span>
        <span class="card-lore">${card.lore ? "ロア"+card.lore : ""}</span>
      </div>
      <div class="card-footer">
@@ -953,100 +1097,306 @@ function updateBattleView() {
    </div>
  `).join("");
 
- // ドローボタン制御
  const btnDraw = document.getElementById("btnDraw");
  if (btnDraw) {
-   btnDraw.disabled = battle.turn !== "player" || p.hasDrawn;
+   btnDraw.disabled = (battle.turn !== "player") || p.hasDrawn || battle.gameOver;
  }
 
  checkWin();
 }
 
-/* --- 自分の場のカードをタップしたとき --- */
+/* --- 勝敗判定 --- */
+
+function checkWin() {
+ if (!battle || battle.gameOver) return;
+ const p = battle.player;
+ const c = battle.cpu;
+
+ if (p.lore >= 20 && c.lore >= 20) {
+   showWin("draw");
+ } else if (p.lore >= 20) {
+   showWin("player");
+ } else if (c.lore >= 20) {
+   showWin("cpu");
+ }
+}
+
+function showWin(who) {
+ if (!battle) return;
+ battle.gameOver = true;
+
+ const overlay = document.getElementById("winOverlay");
+ const msg = document.getElementById("winMessage");
+ if (!overlay || !msg) return;
+
+ if (who === "player") {
+   msg.textContent = "あなたの勝ち！ 20ロア達成！";
+ } else if (who === "cpu") {
+   msg.textContent = "CPUの勝ち… 20ロアを先に取られました。";
+ } else {
+   msg.textContent = "引き分け！";
+ }
+
+ overlay.classList.remove("hidden");
+}
+
+function returnToMenuFromBattle() {
+ const overlay = document.getElementById("winOverlay");
+ if (overlay) overlay.classList.add("hidden");
+ battle = null;
+ showScreen("menu");
+}
+
+/* --- 覚醒エルサ（プレイヤー側） --- */
+
+function triggerElsaEffect() {
+ if (!battle) return;
+ const c = battle.cpu;
+ if (!c.field.length) {
+   addLog("覚醒エルサの効果：相手のキャラがいないため、何も起こらなかった。");
+   return;
+ }
+
+ addLog("覚醒エルサの効果：相手キャラを最大2体までレストし、次のターンもレディしない。");
+
+ elsaEffectState = {
+   selected: [null, null],
+   activeSlot: 0
+ };
+
+ const area = document.getElementById("actionArea");
+ if (area) {
+   area.innerHTML = `
+     <div style="margin-bottom:4px;">
+       覚醒エルサの効果：<br>
+       「レストさせて次のターン動かせなくなるキャラ」を
+       最大2体まで選んでください。<br>
+       ボタンを押したあと、相手フィールドのキャラをタップして選択します。
+     </div>
+     <button class="btn small" onclick="startElsaSelect(1)">1体目を選択</button>
+     <button class="btn small" onclick="startElsaSelect(2)">2体目を選択</button>
+     <button class="btn small" onclick="finishElsaSelect()">選択終了</button>
+   `;
+ }
+}
+
+function startElsaSelect(slot) {
+ if (!battle) return;
+ const c = battle.cpu;
+ if (!c.field.length) {
+   alert("相手のキャラがいません。");
+   return;
+ }
+ if (!elsaEffectState) {
+   elsaEffectState = { selected:[null,null], activeSlot:0 };
+ }
+ elsaEffectState.activeSlot = slot;
+
+ const area = document.getElementById("actionArea");
+ if (area) {
+   area.innerHTML = `
+     <div style="margin-bottom:4px;">
+       覚醒エルサの効果：${slot}体目の対象を選択中です。<br>
+       相手フィールドのキャラをタップしてください。
+     </div>
+     <button class="btn small" onclick="startElsaSelect(1)">1体目を選択</button>
+     <button class="btn small" onclick="startElsaSelect(2)">2体目を選択</button>
+     <button class="btn small" onclick="finishElsaSelect()">選択終了</button>
+   `;
+ }
+}
+
+function finishElsaSelect() {
+ elsaEffectState = null;
+ const area = document.getElementById("actionArea");
+ if (area) {
+   area.innerHTML = `
+     <div>
+       覚醒エルサの効果の対象選択を終了しました。<br>
+       残りのキャラは通常通り行動できます。
+     </div>
+   `;
+ }
+}
+
+function triggerElsaEffectCpu() {
+ if (!battle) return;
+ const p = battle.player;
+ if (!p.field.length) {
+   addLog("CPUの覚醒エルサの効果：プレイヤーのキャラがいないため、何も起こらなかった。");
+   return;
+ }
+ const indices = p.field.map((_,idx)=>idx);
+ shuffle(indices);
+ const targets = indices.slice(0,2);
+ targets.forEach(idx => {
+   const card = p.field[idx];
+   card.rest = true;
+   card.skipReadyTurn = battle.turnCount + 1;
+   addLog(`CPUの覚醒エルサの効果で「${card.name}」がレストされ、次のターンもレディしない。`);
+ });
+}
+
+/* --- 終焉の大火 --- */
+
+function wipeAllCharacters() {
+ if (!battle) return;
+ const p = battle.player;
+ const c = battle.cpu;
+
+ p.field = p.field.filter(card => card.type !== "character");
+ c.field = c.field.filter(card => card.type !== "character");
+
+ updateBattleView();
+}
+
+/* --- 自分フィールドクリック --- */
+
 function onPlayerFieldClick(index) {
- if (!battle || battle.turn !== "player") return;
+ if (!battle) return;
  const p = battle.player;
  const card = p.field[index];
  if (!card) return;
 
  const area = document.getElementById("actionArea");
- let infoHtml = `<div>「${card.name}」を選択中</div>`;
+ let html = `
+   <div class="card-box ${card.color || ''}">
+     <div class="card-name">${card.name}</div>
+     <div class="card-stats">
+       ATK:${card.atk} / HP:${card.hp}/${card.maxHp} / ロア:${card.lore || 0}
+     </div>
+     <div class="card-stats">
+       種類:${card.type}${card.evade ? " / 回避" : ""}
+     </div>
+   </div>
+ `;
 
- if (card.type !== "character") {
-   area.innerHTML = infoHtml + `<div>このカードはキャラクターではありません。</div>`;
+ if (battle.turn !== "player" || battle.gameOver) {
+   area.innerHTML = html + `<div class="card-stats">今は自分のターンではありません。</div>`;
    return;
  }
+
  if (card.summonTurn === battle.turnCount) {
-   area.innerHTML = infoHtml + `<div>このターンに出たキャラは行動できません。</div>`;
-   return;
- }
- if (card.rest) {
-   area.innerHTML = infoHtml + `<div>このキャラはすでに行動しています。</div>`;
+   area.innerHTML = html + `<div class="card-stats">このターンに出たキャラです（召喚酔い）。</div>`;
    return;
  }
 
- pendingChallenge = null;
- area.innerHTML = infoHtml +
-   `<button class="btn small" onclick="doSeek(${index})">ロアを得る（Seek）</button>` +
-   `<button class="btn small" onclick="prepareChallenge(${index})">チャレンジ</button>`;
+ if (card.rest) {
+   area.innerHTML = html + `<div class="card-stats">このキャラはすでに行動しました。</div>`;
+   return;
+ }
+
+ area.innerHTML = html + `
+   <div class="card-stats">行動を選んでください。</div>
+   <button class="btn small" onclick="doSeek(${index})">Seek（ロアを得る）</button>
+   <button class="btn small" onclick="prepareChallenge(${index})">チャレンジ（攻撃）</button>
+ `;
 }
 
-/* --- 相手の場のカードをタップしたとき --- */
+/* --- CPUフィールドクリック --- */
+
 function onCpuFieldClick(index) {
  if (!battle) return;
  const c = battle.cpu;
  const card = c.field[index];
  if (!card) return;
 
- const area = document.getElementById("actionArea");
+ if (elsaEffectState && elsaEffectState.activeSlot) {
+   const slot = elsaEffectState.activeSlot;
+   const pos  = slot - 1;
 
- // まだ攻撃する自分キャラを選んでいない
- if (pendingChallenge === null) {
-   area.innerHTML =
-     `<div>相手の「${card.name}」が選択されています。</div>` +
-     `<div class="card-stats">ATK:${card.atk} / HP:${card.hp}/${card.maxHp} / ロア:${card.lore || 0}</div>` +
-     `<div>チャレンジする自分のキャラを先に選んでください。</div>`;
+   elsaEffectState.selected[pos] = index;
+
+   card.rest = true;
+   card.skipReadyTurn = battle.turnCount + 1;
+
+   addLog(`覚醒エルサの効果で「${card.name}」を${slot}体目の対象としてレストし、次のターンもレディしない。`);
+
+   elsaEffectState.activeSlot = 0;
+   updateBattleView();
+
+   const area2 = document.getElementById("actionArea");
+   if (area2) {
+     area2.innerHTML = `
+       <div style="margin-bottom:4px;">
+         覚醒エルサの効果：${slot}体目に「${card.name}」を選びました。<br>
+         続けて「1体目」または「2体目」のボタンを押して別のキャラを選ぶか、<br>
+         「選択終了」を押してください。
+       </div>
+       <button class="btn small" onclick="startElsaSelect(1)">1体目を選択</button>
+       <button class="btn small" onclick="startElsaSelect(2)">2体目を選択</button>
+       <button class="btn small" onclick="finishElsaSelect()">選択終了</button>
+     `;
+   }
    return;
  }
 
- // 既に攻撃する自分キャラが選ばれているので、チャレンジ解決
- resolvePlayerChallenge(pendingChallenge, index);
- pendingChallenge = null;
+ const area = document.getElementById("actionArea");
+ let html = `
+   <div class="card-box ${card.color || ''}">
+     <div class="card-name">${card.name}</div>
+     <div class="card-stats">
+       ATK:${card.atk} / HP:${card.hp}/${card.maxHp} / ロア:${card.lore || 0}
+     </div>
+     <div class="card-stats">
+       種類:${card.type}${card.evade ? " / 回避" : ""}（相手のキャラ）
+     </div>
+   </div>
+ `;
+
+ if (pendingChallenge !== null) {
+   resolvePlayerChallenge(pendingChallenge, index);
+   pendingChallenge = null;
+   return;
+ }
+
+ area.innerHTML = html;
 }
 
-/* --- Seek --- */
+/* --- Seek & チャレンジ --- */
+
 function doSeek(index) {
- if (!battle || battle.turn !== "player") return;
+ if (!battle || battle.gameOver) return;
  const p = battle.player;
  const card = p.field[index];
  if (!card || card.type!=="character") return;
- if (card.summonTurn === battle.turnCount || card.rest) return;
-
+ if (battle.turn !== "player") return;
+ if (card.summonTurn === battle.turnCount) {
+   alert("このターンに出たキャラは行動できません。");
+   return;
+ }
+ if (card.rest) {
+   alert("このキャラはすでに行動しています。");
+   return;
+ }
  p.lore += card.lore || 0;
  card.rest = true;
- addLog(`自分の「${card.name}」がSeekしてロアを${card.lore}得た。`);
- document.getElementById("actionArea").innerHTML = "";
+ addLog(`自分の「${card.name}」がSeekしてロアを${card.lore || 0}得た。`);
+ const area = document.getElementById("actionArea");
+ if (area) area.innerHTML = "";
  updateBattleView();
 }
 
-/* --- チャレンジ準備 --- */
 function prepareChallenge(index) {
- if (!battle || battle.turn !== "player") return;
+ if (!battle || battle.gameOver) return;
  const p = battle.player;
  const card = p.field[index];
  if (!card || card.type!=="character") return;
- if (card.summonTurn === battle.turnCount || card.rest) return;
-
+ if (battle.turn !== "player") return;
+ if (card.summonTurn === battle.turnCount) {
+   alert("このターンに出たキャラは行動できません。");
+   return;
+ }
+ if (card.rest) {
+   alert("このキャラはすでに行動しています。");
+   return;
+ }
  pendingChallenge = index;
- const area = document.getElementById("actionArea");
- area.innerHTML =
-   `<div>「${card.name}」でチャレンジします。</div>` +
-   `<div>攻撃したい相手キャラをタップしてください。</div>`;
+ addLog(`「${card.name}」のチャレンジ対象にする相手キャラをタップしてください。`);
 }
 
-/* --- チャレンジ解決 --- */
 function resolvePlayerChallenge(pIndex, cIndex) {
- if (!battle) return;
+ if (!battle || battle.gameOver) return;
  const p = battle.player;
  const c = battle.cpu;
  const attacker = p.field[pIndex];
@@ -1057,6 +1407,11 @@ function resolvePlayerChallenge(pIndex, cIndex) {
  }
  if (attacker.summonTurn === battle.turnCount || attacker.rest) {
    addLog("このキャラは行動できません。");
+   return;
+ }
+
+ if (target.evade && !attacker.evade) {
+   addLog(`「${target.name}」は回避を持つため、「${attacker.name}」はチャレンジできない。`);
    return;
  }
 
@@ -1077,14 +1432,17 @@ function resolvePlayerChallenge(pIndex, cIndex) {
    attacker.rest = true;
  }
 
- document.getElementById("actionArea").innerHTML = "";
+ const area = document.getElementById("actionArea");
+ if (area) area.innerHTML = "";
  updateBattleView();
 }
 
 /* --- 手札の行動 --- */
+
 function playerDraw() {
- if (!battle || battle.turn !== "player") return;
+ if (!battle || battle.gameOver) return;
  const p = battle.player;
+ if (battle.turn !== "player") return;
  if (p.hasDrawn) {
    alert("このターンは既にドローしています。");
    return;
@@ -1109,7 +1467,8 @@ function requireDrawFirst() {
 }
 
 function inkFromHand(index) {
- if (!battle || battle.turn !== "player") return;
+ if (!battle || battle.gameOver) return;
+ if (battle.turn !== "player") return;
  const p = battle.player;
  if (!requireDrawFirst()) return;
  if (p.hasInked) {
@@ -1129,35 +1488,101 @@ function inkFromHand(index) {
  updateBattleView();
 }
 
-function inkFromHandSelected() {
- alert("手札のカードにある『インク』ボタンを押してください。");
-}
-
 function playFromHand(index) {
- if (!battle || battle.turn !== "player") return;
+ if (!battle || battle.gameOver) return;
+ if (battle.turn !== "player") return;
  const p = battle.player;
  if (!requireDrawFirst()) return;
  const card = p.hand[index];
  if (!card) return;
+
+ if (card.type === "song" && card.name === "終焉の大火") {
+   if (p.inkAvail < card.cost) {
+     alert("インクが足りません。");
+     return;
+   }
+   p.inkAvail -= card.cost;
+   p.hand.splice(index,1);
+   addLog(`自分はソング「${card.name}」をプレイした！ フィールド上のすべてのキャラクターを破壊する。`);
+   wipeAllCharacters();
+   return;
+ }
+
+ if (card.name === "覚醒エルサ" && typeof card.transformCost === "number") {
+   const candidates = p.field
+     .map((c,idx) => ({ card:c, idx }))
+     .filter(obj => obj.card.type === "character" && obj.card.name.includes("エルサ"));
+
+   if (candidates.length > 0 && p.inkAvail >= card.transformCost) {
+     const useTransform = confirm(`同名のキャラがいるので、変身コスト${card.transformCost}で出しますか？\n（OKで変身 / キャンセルで通常コスト${card.cost}）`);
+     if (useTransform) {
+       const baseObj = candidates[0];
+       const baseCard = baseObj.card;
+
+       const damage = baseCard.maxHp - baseCard.hp;
+       const newCard = card;
+
+       newCard.maxHp = 6;
+       newCard.hp = Math.max(1, newCard.maxHp - damage);
+
+       if (baseCard.summonTurn < battle.turnCount && !baseCard.rest) {
+         newCard.summonTurn = battle.turnCount - 1;
+         newCard.rest = false;
+       } else {
+         newCard.summonTurn = battle.turnCount;
+         newCard.rest = true;
+       }
+
+       p.field[baseObj.idx] = newCard;
+
+       p.inkAvail -= newCard.transformCost;
+       p.hand.splice(index,1);
+
+       addLog(`自分は「${baseCard.name}」を「覚醒エルサ」に変身させた！（変身コスト${newCard.transformCost}）`);
+
+       triggerElsaEffect();
+       updateBattleView();
+       return;
+     }
+   }
+ }
+
  if (p.inkAvail < card.cost) {
    alert("インクが足りません。");
    return;
  }
  p.inkAvail -= card.cost;
  card.summonTurn = battle.turnCount;
- card.rest = false;
+ card.rest = true;
  p.hand.splice(index,1);
  p.field.push(card);
  addLog(`自分は「${card.name}」を召喚した。`);
+
+ if (card.name === "覚醒エルサ") {
+   triggerElsaEffect();
+ }
+
  updateBattleView();
 }
 
 function endTurn() {
- if (!battle || battle.turn !== "player") return;
+ if (!battle || battle.gameOver) return;
+ if (battle.turn !== "player") return;
  addLog("自分のターン終了。CPUのターン。");
- battle.turn = "cpu";
  updateBattleView();
  startCpuTurn();
+}
+
+/* --- バトル中断 --- */
+function quitBattleToMenu() {
+ if (!battle) {
+   showScreen("menu");
+   return;
+ }
+ const ok = confirm("本当にバトルを終了してメニューに戻りますか？");
+ if (!ok) return;
+ battle = null;
+ showScreen("menu");
 }
 
 /* --- ログ --- */
@@ -1174,31 +1599,10 @@ function addLog(text) {
  el.scrollTop = el.scrollHeight;
 }
 
-/* --- 勝利判定（20ロアで勝ち） --- */
-function checkWin() {
- if (!battle) return;
- const p = battle.player;
- const c = battle.cpu;
-
- if (p.lore >= 20 || c.lore >= 20) {
-   let winner;
-   if (p.lore >= 20 && c.lore >= 20) {
-     winner = "引き分け";
-   } else if (p.lore >= 20) {
-     winner = "プレイヤー";
-   } else {
-     winner = "CPU";
-   }
-   addLog(`${winner}が20ロアに到達！ゲーム終了。`);
-   alert(`${winner}の勝ち！メニューに戻ります。`);
-   battle = null;
-   showScreen("menu");
- }
-}
-
 /* ========== 初期化 ========== */
 window.onload = function() {
  loadData();
+ updateDeckSlotButtons();
  showScreen("menu");
 };
 </script>
