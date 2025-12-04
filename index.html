@@ -452,6 +452,12 @@
 </div>
 
 <script>
+/* ========== カードID定義（特殊処理用） ========== */
+const ID_RATABAA   = 14;
+const ID_LIN       = 13;
+const ID_TITAN     = 9;
+const ID_PRETZEL   = 16;
+
 /* ========== 画面切り替え ========== */
 function showScreen(name) {
  const ids = ["menuScreen","cpuScreen","battleScreen","shopScreen","packScreen","deckScreen","collectionScreen"];
@@ -473,16 +479,35 @@ function showScreen(name) {
 
 /* ========== カード定義 ========== */
 const cards = [
+ // 基本6種
  {id:0, name:"カー",   color:"red",    type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
  {id:1, name:"ルパプ", color:"purple", type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
  {id:2, name:"ルブブ", color:"blue",   type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
  {id:3, name:"ロイエ", color:"yellow", type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
  {id:4, name:"ローシ", color:"white",  type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
  {id:5, name:"ドリミ", color:"green",  type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
- // SR / L
+ // 既存SR/L
  {id:6, name:"終焉の大火",        color:"red",    type:"song",      cost:7, atk:0, hp:0, lore:0, rarity:"SR", inkable:false, effect:"boardwipe"},
  {id:7, name:"氷結の女王ケルサ",  color:"purple", type:"character", cost:8, atk:4, hp:6, lore:3, rarity:"L",  inkable:false, effect:"freeze2", evolveCost:6},
- {id:8, name:"伝説の勇者イフリート", color:"red", type:"character", cost:8, atk:5, hp:5, lore:4, rarity:"L",  inkable:true,  evade:true}
+ {id:8, name:"伝説の勇者イフリート", color:"red", type:"character", cost:8, atk:5, hp:5, lore:4, rarity:"L",  inkable:true,  evade:true},
+
+ /* ===== 追加カード ===== */
+ // 赤
+ {id:9,  name:"タイタン",        color:"red",    type:"character", cost:5, atk:6, hp:5, lore:0, rarity:"SR", inkable:true,  mustAttack:true},
+ {id:10, name:"マジョドラ",      color:"red",    type:"character", cost:9, atk:7, hp:5, lore:2, rarity:"L",  inkable:true,  effect:"destroyOnSummon"},
+ {id:11, name:"ぐわぐわダック",  color:"red",    type:"character", cost:2, atk:2, hp:3, lore:1, rarity:"N",  inkable:true},
+
+ // 青
+ {id:12, name:"ゴーズ",       color:"blue",   type:"character", cost:7, atk:3, hp:6, lore:2, rarity:"L",  inkable:false, effect:"toInkOnSummon"},
+ {id:13, name:"リン",         color:"blue",   type:"character", cost:4, atk:2, hp:4, lore:1, rarity:"L",  inkable:true},
+ {id:14, name:"らたばあ",     color:"blue",   type:"character", cost:1, atk:1, hp:1, lore:0, rarity:"N",  inkable:true},
+ {id:15, name:"ありのままで", color:"blue",   type:"song",      cost:5, atk:0, hp:0, lore:0, rarity:"SR", inkable:true,  effect:"songToInk1"},
+
+ // 黄
+ {id:16, name:"プレッツェル",   color:"yellow", type:"character", cost:4, atk:1, hp:5, lore:2, rarity:"L",  inkable:true,  effect:"pretzelHealDraw"},
+ {id:17, name:"ミスターハジ",   color:"yellow", type:"character", cost:3, atk:2, hp:5, lore:1, rarity:"N",  inkable:true},
+ {id:18, name:"フンバー",       color:"yellow", type:"character", cost:4, atk:3, hp:5, lore:1, rarity:"N",  inkable:true},
+ {id:19, name:"アリエナイ",     color:"yellow", type:"character", cost:3, atk:2, hp:3, lore:1, rarity:"SR", inkable:true,  effect:"arienaiSearchSong", songPower:5}
 ];
 
 function makeCardInstance(base) {
@@ -501,6 +526,8 @@ function makeCardInstance(base) {
    effect: base.effect,
    evolveCost: base.evolveCost,
    evade: base.evade || false,
+   mustAttack: base.mustAttack || false,
+   songPower: base.songPower || base.cost,
    rest: false,
    frozen: false,
    summonTurn: 0
@@ -847,6 +874,10 @@ function shuffle(arr) {
 let battle = null;
 let pendingAttackIndex = null;
 let freezeSelectMode = false;
+let destroySelectMode = false;
+let destroySelectOwner = null; // "cpu" / "player"
+let sendToInkSelectMode = false;
+let sendToInkOwner = null; // "cpu" / "player"
 
 function startBattle() {
  // プレイヤーデッキ生成
@@ -863,11 +894,12 @@ function startBattle() {
 
  if (playerDeckCards.length === 0) {
    // デフォルト赤デッキ 60枚（簡易）
-   for (let i=0;i<54;i++) playerDeckCards.push(makeCardInstance(cards[0])); // カー
+   for (let i=0;i<52;i++) playerDeckCards.push(makeCardInstance(cards[0])); // カー
    playerDeckCards.push(makeCardInstance(cards[6])); // 終焉
    playerDeckCards.push(makeCardInstance(cards[6]));
    playerDeckCards.push(makeCardInstance(cards[7])); // ケルサ
    playerDeckCards.push(makeCardInstance(cards[8])); // イフリート
+   playerDeckCards.push(makeCardInstance(cards[11])); // ぐわぐわダック
  }
 
  // CPUデッキ生成 60枚
@@ -900,7 +932,7 @@ function startBattle() {
      lore: 0,
      inkTotal: 0,
      inkAvail: 0,
-     hasUsedInkThisTurn: false
+     inkUsedThisTurn: 0
    },
    cpu: {
      deck: cpuDeckCards,
@@ -909,7 +941,7 @@ function startBattle() {
      lore: 0,
      inkTotal: 0,
      inkAvail: 0,
-     hasUsedInkThisTurn: false
+     inkUsedThisTurn: 0
    }
  };
 
@@ -927,6 +959,47 @@ function startBattle() {
  startPlayerTurn(true);
 }
 
+/* ========== インク関連（リン対応） ========== */
+function ownerHasLin(owner) {
+ return owner.field.some(card => card.id === ID_LIN);
+}
+function getMaxInkPerTurn(owner) {
+ let base = 1;
+ if (ownerHasLin(owner)) base += 1;
+ return base;
+}
+
+/* ========== リンのロア動的更新 ========== */
+function updateLinLore() {
+ if (!battle) return;
+ [battle.player, battle.cpu].forEach(owner => {
+   owner.field.forEach(card => {
+     if (card.id === ID_LIN) {
+       card.lore = (owner.inkTotal >= 10 ? 5 : 1);
+     }
+   });
+ });
+}
+
+/* ========== 死亡時処理（らたばあ等） ========== */
+function onCardDestroyed(owner, card) {
+ if (card.id === ID_RATABAA) {
+   owner.inkTotal++;
+   owner.inkAvail++;
+   addLog(`「${card.name}」は破壊され、コストになった。`);
+ }
+}
+
+/* ========== 汎用：キャラを「コストに送る」 ========== */
+function sendCharacterToInk(owner, index) {
+ const card = owner.field[index];
+ if (!card) return;
+ owner.field.splice(index,1);
+ owner.inkTotal++;
+ owner.inkAvail++;
+ addLog(`「${card.name}」はコストに送られた。`);
+}
+
 /* ========== プレイヤーターン開始処理 ========== */
 function startPlayerTurn(isFirstTurn) {
  if (!battle) return;
@@ -940,10 +1013,8 @@ function startPlayerTurn(isFirstTurn) {
    if (card.frozen) card.frozen = false;
  });
 
- // インク使用フラグリセット
- p.hasUsedInkThisTurn = false;
-
- // インク全回復
+ // インク使用リセット & 全回復
+ p.inkUsedThisTurn = 0;
  p.inkAvail = p.inkTotal;
 
  // 先攻1ターン目以外はターン開始時に自動ドロー
@@ -993,6 +1064,8 @@ function updateBattleView() {
  if (!battle) return;
  const p = battle.player;
  const c = battle.cpu;
+
+ updateLinLore();
 
  document.getElementById("playerLore").textContent = p.lore;
  document.getElementById("playerInkCurrent").textContent = p.inkAvail;
@@ -1073,9 +1146,9 @@ function inkFromHand(index) {
  const card = p.hand[index];
  if (!card) return;
 
- // このターンにすでにインクを置いているかチェック
- if (p.hasUsedInkThisTurn) {
-   alert("このターンはすでにインクを1枚置いています。");
+ const maxInk = getMaxInkPerTurn(p);
+ if (p.inkUsedThisTurn >= maxInk) {
+   alert("このターンに置けるインクはこれ以上ありません。");
    return;
  }
 
@@ -1086,7 +1159,7 @@ function inkFromHand(index) {
  p.hand.splice(index,1);
  p.inkTotal++;
  p.inkAvail++;
- p.hasUsedInkThisTurn = true;
+ p.inkUsedThisTurn++;
  addLog(`「${card.name}」をインクに置いた。`);
  updateBattleView();
 }
@@ -1094,6 +1167,7 @@ function inkFromHand(index) {
 function playFromHand(index) {
  if (!battle) return;
  const p = battle.player;
+ const c = battle.cpu;
  const card = p.hand[index];
  if (!card) return;
 
@@ -1126,6 +1200,12 @@ function playFromHand(index) {
      if (card.effect === "freeze2") {
        startFreezeSelect();
      }
+     if (card.effect === "pretzelHealDraw") {
+       doPretzelEffect(p);
+     }
+     if (card.effect === "arienaiSearchSong") {
+       doArienaiEffect(p);
+     }
      updateBattleView();
      return;
    }
@@ -1143,10 +1223,70 @@ function playFromHand(index) {
  p.field.push(card);
  addLog(`「${card.name}」を召喚した。`);
 
+ // ETB効果
  if (card.effect === "freeze2") {
    startFreezeSelect();
+ } else if (card.effect === "destroyOnSummon") {
+   startDestroySelect("cpu");
+ } else if (card.effect === "toInkOnSummon") {
+   startSendToInkSelect("cpu");
+ } else if (card.effect === "pretzelHealDraw") {
+   doPretzelEffect(p);
+ } else if (card.effect === "arienaiSearchSong") {
+   doArienaiEffect(p);
  }
+
  updateBattleView();
+}
+
+/* ========== プレッツェルの効果 ==========
+   場の味方キャラから合計3ダメージまで回復し、その回復した数だけドロー
+====================================== */
+function drawOne(owner) {
+ if (!owner.deck.length) return false;
+ owner.hand.push(owner.deck.pop());
+ return true;
+}
+
+function doPretzelEffect(owner) {
+ let healed = 0;
+ while (healed < 3) {
+   const target = owner.field.find(c => c.hp < c.maxHp);
+   if (!target) break;
+   target.hp++;
+   healed++;
+ }
+ if (healed > 0) {
+   for (let i=0;i<healed;i++) {
+     drawOne(owner);
+   }
+   if (owner === battle.player) {
+     addLog(`「プレッツェル」の効果で合計${healed}ダメージを回復し、${healed}枚ドローした。`);
+   } else {
+     addLog(`CPUの「プレッツェル」の効果で${healed}回復＆${healed}ドロー。`);
+   }
+ }
+}
+
+/* ========== アリエナイのソングサーチ ========== */
+function doArienaiEffect(owner) {
+ const temp = [];
+ for (let i=0;i<4 && owner.deck.length;i++) {
+   temp.push(owner.deck.pop());
+ }
+ let songIndex = -1;
+ for (let i=0;i<temp.length;i++) {
+   if (temp[i].type === "song") { songIndex = i; break; }
+ }
+ if (songIndex >= 0) {
+   const card = temp.splice(songIndex,1)[0];
+   owner.hand.push(card);
+   addLog(`「アリエナイ」の効果でソング「${card.name}」を手札に加えた。`);
+ }
+ // 残りをデッキの下（先頭側）へ
+ for (let i=temp.length-1;i>=0;i--) {
+   owner.deck.unshift(temp[i]);
+ }
 }
 
 /* ========== ケルサの凍結選択 ========== */
@@ -1182,10 +1322,37 @@ function finishFreezeSelect() {
  updateBattleView();
 }
 
+/* ========== マジョドラの破壊選択 ========== */
+function startDestroySelect(ownerSide) {
+ destroySelectMode = true;
+ destroySelectOwner = ownerSide; // "cpu"のみ使用
+ document.getElementById("actionArea").textContent =
+   "退場させる相手キャラを1体選んでください。";
+}
+
+/* ========== ゴーズ／ありのままで の「コスト送り」 ========== */
+function startSendToInkSelect(ownerSide) {
+ sendToInkSelectMode = true;
+ sendToInkOwner = ownerSide; // "cpu" or "player"
+ document.getElementById("actionArea").textContent =
+   "コストに送るキャラを選んでください。";
+}
+
+/* ========== タイタンの強制アタック判定 ========== */
+function hasValidChallengeTarget(attacker, attackerOwner, defenderOwner) {
+ const targets = defenderOwner.field.filter(t => {
+   if (!t.rest) return false;
+   if (t.evade && !attacker.evade) return false;
+   return true;
+ });
+ return targets.length > 0;
+}
+
 /* ========== フィールドクリック ========== */
 function onPlayerFieldClick(index) {
  if (!battle) return;
  const p = battle.player;
+ const c = battle.cpu;
  const card = p.field[index];
  if (!card) return;
 
@@ -1198,15 +1365,20 @@ function onPlayerFieldClick(index) {
    return;
  }
 
- let html = `
-   <div>${card.name} の行動を選択：</div>
-   <button class="btn small" onclick="doSeek(${index})">シーク（ロア＋${card.lore}）</button>
-   <button class="btn small" onclick="prepareChallenge(${index})">チャレンジ</button>
- `;
+ const titanMustAttack =
+   card.mustAttack && hasValidChallengeTarget(card, p, c);
 
- // ソングを歌えるか（終焉の大火 他）
- const songIndex = findSongInHand(card.cost);
- if (songIndex >= 0) {
+ let html = `<div>${card.name} の行動を選択：</div>`;
+
+ if (!titanMustAttack) {
+   html += `<button class="btn small" onclick="doSeek(${index})">シーク（ロア＋${card.lore}）</button>`;
+ }
+
+ html += `<button class="btn small" onclick="prepareChallenge(${index})">チャレンジ</button>`;
+
+ // ソングを歌えるか（終焉の大火 / ありのままで 等）
+ const songIndex = findSongInHand(card.songPower);
+ if (!titanMustAttack && songIndex >= 0) {
    html += `<button class="btn small" onclick="songAsk(${index},${songIndex})">ソングを歌う</button>`;
  }
 
@@ -1216,8 +1388,36 @@ function onPlayerFieldClick(index) {
 function onCpuFieldClick(index) {
  if (!battle) return;
  const c = battle.cpu;
+ const p = battle.player;
  const card = c.field[index];
  if (!card) return;
+
+ // 「コストに送る」選択中
+ if (sendToInkSelectMode && sendToInkOwner === "cpu") {
+   sendCharacterToInk(c, index);
+   sendToInkSelectMode = false;
+   sendToInkOwner = null;
+   document.getElementById("actionArea").textContent =
+     "キャラをタップして行動を選べます。";
+   updateBattleView();
+   return;
+ }
+
+ // マジョドラ破壊選択中
+ if (destroySelectMode && destroySelectOwner === "cpu") {
+   const target = c.field[index];
+   if (target) {
+     c.field.splice(index,1);
+     onCardDestroyed(c, target);
+     addLog(`「${target.name}」は「マジョドラ」の効果で退場した。`);
+   }
+   destroySelectMode = false;
+   destroySelectOwner = null;
+   document.getElementById("actionArea").textContent =
+     "キャラをタップして行動を選べます。";
+   updateBattleView();
+   return;
+ }
 
  // ケルサ凍結選択中
  if (freezeSelectMode) {
@@ -1292,10 +1492,12 @@ function challengeTarget(cpuIndex) {
 
  if (target.hp <= 0) {
    c.field.splice(cpuIndex,1);
+   onCardDestroyed(c, target);
    addLog(`「${target.name}」は退場した。`);
  }
  if (attacker.hp <= 0) {
    p.field.splice(pendingAttackIndex,1);
+   onCardDestroyed(p, attacker);
    addLog(`「${attacker.name}」は退場した。`);
  }
 
@@ -1305,11 +1507,11 @@ function challengeTarget(cpuIndex) {
  updateBattleView();
 }
 
-/* ========== ソング（終焉の大火） ========== */
-function findSongInHand(maxCost) {
+/* ========== ソング（終焉の大火/ありのままで） ========== */
+function findSongInHand(maxSongPower) {
  const hand = battle.player.hand;
  for (let i=0;i<hand.length;i++) {
-   if (hand[i].type === "song" && hand[i].cost <= maxCost) return i;
+   if (hand[i].type === "song" && hand[i].cost <= maxSongPower) return i;
  }
  return -1;
 }
@@ -1346,9 +1548,18 @@ function songCast(charIndex, songIndex, freeCast) {
  p.hand.splice(songIndex,1);
 
  if (spell.effect === "boardwipe") {
-   p.field = [];
+   // 破壊扱い
+   battle.player.field.forEach(card => onCardDestroyed(battle.player, card));
+   battle.cpu.field.forEach(card => onCardDestroyed(battle.cpu, card));
+   battle.player.field = [];
    battle.cpu.field = [];
    addLog("終焉の大火が発動！場のキャラはすべて破壊された！");
+ } else if (spell.effect === "songToInk1") {
+   if (battle.cpu.field.length === 0) {
+     addLog("対象のキャラがいないため「ありのままで」は不発。");
+   } else {
+     startSendToInkSelect("cpu");
+   }
  }
 
  document.getElementById("actionArea").textContent = "ソングを使用しました。";
@@ -1359,6 +1570,19 @@ function songCast(charIndex, songIndex, freeCast) {
 function endTurn() {
  if (!battle) return;
  if (battle.turn !== "player") return;
+
+ // タイタンが攻撃可能ならチャレンジ必須
+ const p = battle.player;
+ const c = battle.cpu;
+ for (let i=0;i<p.field.length;i++) {
+   const card = p.field[i];
+   if (card.mustAttack && !card.rest && !card.frozen &&
+       hasValidChallengeTarget(card, p, c)) {
+     alert("「タイタン」は攻撃可能な場合、必ずチャレンジしなければなりません。");
+     return;
+   }
+ }
+
  battle.turn = "cpu";
  addLog("自分のターン終了。CPUのターン。");
  cpuTurn();
@@ -1378,8 +1602,8 @@ function cpuTurn() {
    if (card.frozen) card.frozen = false;
  });
 
- // インク使用フラグリセット & インク全回復
- c.hasUsedInkThisTurn = false;
+ // インク使用リセット & インク全回復
+ c.inkUsedThisTurn = 0;
  c.inkAvail = c.inkTotal;
 
  // ターン開始時ドロー
@@ -1390,26 +1614,30 @@ function cpuTurn() {
    addLog("CPUは山札がなく、ドローできない。");
  }
 
- // インク1枚（1ターンに1回まで）
- if (!c.hasUsedInkThisTurn) {
+ // インク（リンがいると2回まで）
+ const maxInk = getMaxInkPerTurn(c);
+ while (c.inkUsedThisTurn < maxInk) {
+   let placed = false;
    for (let i=0;i<c.hand.length;i++) {
      const card = c.hand[i];
      if (card.inkable) {
        c.hand.splice(i,1);
        c.inkTotal++;
        c.inkAvail++;
-       c.hasUsedInkThisTurn = true;
+       c.inkUsedThisTurn++;
        addLog("CPUはインクを1枚置いた。");
+       placed = true;
        break;
      }
    }
+   if (!placed) break;
  }
 
  // 召喚（高コスト優先）
  let bestIndex = -1;
  let bestCost  = -1;
  c.hand.forEach((card, idx) => {
-   if (card.cost <= c.inkAvail && card.cost > bestCost) {
+   if (card.cost <= c.inkAvail && card.cost > bestCost && card.type === "character") {
      bestCost = card.cost;
      bestIndex = idx;
    }
@@ -1422,12 +1650,40 @@ function cpuTurn() {
    c.hand.splice(bestIndex,1);
    c.field.push(card);
    addLog(`CPUは「${card.name}」を召喚した。`);
+
+   // CPU側ETB
+   if (card.effect === "destroyOnSummon") {
+     if (p.field.length > 0) {
+       // 適当：ATKの高い順
+       let tIndex = 0;
+       for (let i=1;i<p.field.length;i++) {
+         if (p.field[i].atk > p.field[tIndex].atk) tIndex = i;
+       }
+       const target = p.field[tIndex];
+       p.field.splice(tIndex,1);
+       onCardDestroyed(p, target);
+       addLog(`CPUの「マジョドラ」の効果で「${target.name}」が退場した。`);
+     }
+   } else if (card.effect === "toInkOnSummon") {
+     if (p.field.length > 0) {
+       let tIndex = 0;
+       for (let i=1;i<p.field.length;i++) {
+         if (p.field[i].atk > p.field[tIndex].atk) tIndex = i;
+       }
+       sendCharacterToInk(p, tIndex);
+     }
+   } else if (card.effect === "pretzelHealDraw") {
+     doPretzelEffect(c);
+   } else if (card.effect === "arienaiSearchSong") {
+     doArienaiEffect(c);
+   }
  }
 
  // 超CPU攻撃
  cpuAttack();
 
  // ロア獲得（場のキャラのロアを加算）
+ updateLinLore();
  c.field.forEach(card => {
    c.lore += card.lore || 0;
  });
@@ -1481,10 +1737,12 @@ function cpuAttack() {
    if (target.hp <= 0) {
      const idx = p.field.indexOf(target);
      if (idx >= 0) p.field.splice(idx,1);
+     onCardDestroyed(p, target);
      addLog(`「${target.name}」は退場した。`);
    }
    if (attacker.hp <= 0) {
      c.field.splice(i,1);
+     onCardDestroyed(c, attacker);
      addLog(`CPUの「${attacker.name}」は退場した。`);
      i--;
    }
@@ -1521,7 +1779,7 @@ function addLog(text) {
  el.scrollTop = el.scrollHeight;
 }
 
-/* ===中断 ========== */
+/* ========== バトル中断 ========== */
 function endBattleToMenu() {
  if (confirm("バトルを終了してメニューに戻りますか？")) {
    battle = null;
