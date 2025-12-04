@@ -342,18 +342,18 @@
    <button id="btnCpuStrong" class="btn" onclick="setCpuStrength('strong')">強い（超CPU）</button>
  </div>
 
- <div class="section-title">CPUデッキ色</div>
+ <div class="section-title">CPUデッキ色（2色まで選択）</div>
  <div class="row">
-   <button id="cpuRed"    class="btn" onclick="setCpuColor('red')">赤</button>
-   <button id="cpuPurple" class="btn" onclick="setCpuColor('purple')">紫</button>
+   <button id="cpuRed"    class="btn" onclick="toggleCpuColor('red')">赤</button>
+   <button id="cpuPurple" class="btn" onclick="toggleCpuColor('purple')">紫</button>
  </div>
  <div class="row">
-   <button id="cpuBlue"   class="btn" onclick="setCpuColor('blue')">青</button>
-   <button id="cpuYellow" class="btn" onclick="setCpuColor('yellow')">黄</button>
+   <button id="cpuBlue"   class="btn" onclick="toggleCpuColor('blue')">青</button>
+   <button id="cpuYellow" class="btn" onclick="toggleCpuColor('yellow')">黄</button>
  </div>
  <div class="row">
-   <button id="cpuWhite"  class="btn" onclick="setCpuColor('white')">白</button>
-   <button id="cpuGreen"  class="btn" onclick="setCpuColor('green')">緑</button>
+   <button id="cpuWhite"  class="btn" onclick="toggleCpuColor('white')">白</button>
+   <button id="cpuGreen"  class="btn" onclick="toggleCpuColor('green')">緑</button>
  </div>
 
  <div class="section-title">自分の使用デッキ</div>
@@ -489,6 +489,7 @@ const ID_RATABAA   = 14;
 const ID_LIN       = 13;
 const ID_TITAN     = 9;
 const ID_PRETZEL   = 16;
+const ID_CHAMELEON = 24; // 新：カメレオン
 
 /* ========== 画面切り替え ========== */
 function showScreen(name) {
@@ -538,7 +539,27 @@ const cards = [
  {id:16, name:"プレッツェル",   color:"yellow", type:"character", cost:4, atk:1, hp:5, lore:2, rarity:"L",  inkable:true,  effect:"pretzelHealDraw"},
  {id:17, name:"ミスターハジ",   color:"yellow", type:"character", cost:3, atk:2, hp:5, lore:1, rarity:"N",  inkable:true},
  {id:18, name:"フンバー",       color:"yellow", type:"character", cost:4, atk:3, hp:5, lore:1, rarity:"N",  inkable:true},
- {id:19, name:"アリエナイ",     color:"yellow", type:"character", cost:3, atk:2, hp:3, lore:1, rarity:"SR", inkable:true,  effect:"arienaiSearchSong", songPower:5}
+ {id:19, name:"アリエナイ",     color:"yellow", type:"character", cost:3, atk:2, hp:3, lore:1, rarity:"SR", inkable:true,  effect:"arienaiSearchSong", songPower:5},
+
+ /* ===== 新カード ===== */
+
+ // 赤グループ
+ {id:20, name:"ジーユー",       color:"red",    type:"character", cost:6, atk:3, hp:4, lore:2, rarity:"SR", inkable:false, effect:"giyuBounce"},
+ {id:21, name:"エンハンス",     color:"red",    type:"character", cost:4, atk:3, hp:3, lore:3, rarity:"N",  inkable:true},
+ {id:22, name:"背筋がヒヤリ",   color:"red",    type:"song",      cost:2, atk:0, hp:0, lore:0, rarity:"N",  inkable:true,  effect:"hiyariDiscard"},
+
+ // 紫グループ
+ {id:23, name:"ほうき",         color:"purple", type:"character", cost:2, atk:2, hp:2, lore:1, rarity:"N",  inkable:true},
+ {id:24, name:"カメレオン",     color:"purple", type:"character", cost:1, atk:1, hp:1, lore:1, rarity:"N",  inkable:true},
+ {id:25, name:"ティラミスのたくらみ", color:"purple", type:"song", cost:3, atk:0, hp:0, lore:0, rarity:"R", inkable:true,  effect:"tiramisuDraw3"},
+ {id:26, name:"マジョ",         color:"purple", type:"character", cost:3, atk:2, hp:2, lore:1, rarity:"N",  inkable:true,  effect:"majoDraw1"},
+ {id:27, name:"ケルサ",         color:"purple", type:"character", cost:3, atk:2, hp:3, lore:1, rarity:"N",  inkable:true},
+
+ // 白グループ
+ {id:28, name:"AHNW",           color:"white",  type:"song",      cost:5, atk:0, hp:0, lore:0, rarity:"SR", inkable:false, effect:"ahnwResetHands"},
+ {id:29, name:"スラッシュ！",   color:"white",  type:"song",      cost:3, atk:0, hp:0, lore:0, rarity:"R",  inkable:true,  effect:"slash3Damage"},
+ {id:30, name:"剣で刺せ",       color:"white",  type:"song",      cost:5, atk:0, hp:0, lore:0, rarity:"R",  inkable:false, effect:"stabAoE2"},
+ {id:31, name:"エラッタ王子",   color:"white",  type:"character", cost:2, atk:1, hp:3, lore:1, rarity:"N",  inkable:true,  ferocious:2}
 ];
 
 function makeCardInstance(base) {
@@ -559,6 +580,7 @@ function makeCardInstance(base) {
    evade: base.evade || false,
    mustAttack: base.mustAttack || false,
    songPower: base.songPower || base.cost,
+   ferocious: base.ferocious || 0,  // 獰猛（エラッタ王子用）
    rest: false,
    frozen: false,
    summonTurn: 0
@@ -726,6 +748,32 @@ function getCardEffectText(card) {
      return "特になし。";
    case 19:
      return "歌声5：このキャラはソングを歌うとき、コスト5のソングを歌えるキャラとして扱う。\n召喚時：自分のデッキの上から4枚見て、その中からソングカードを1枚まで手札に加える。残りは好きな順番でデッキの下に置く。";
+
+   /* 新カード説明 */
+   case 20:
+     return "召喚時：好きな相手のキャラ1体を選んで、相手の手札に戻してもよい。";
+   case 21:
+     return "特になし。";
+   case 22:
+     return "ソング（2）：相手は手札から1枚を選んで捨てる。";
+   case 23:
+     return "特になし。";
+   case 24:
+     return "このキャラクターは自分の場に他のキャラクターがいる間『回避』を得る。";
+   case 25:
+     return "ソング（3）：自分は山札から3枚ドローする。";
+   case 26:
+     return "召喚時：山札から1枚ドローする。";
+   case 27:
+     return "特になし。";
+   case 28:
+     return "ソング（5）：お互いのプレイヤーは手札をすべて捨ててから7枚ドローする。";
+   case 29:
+     return "ソング（3）：選んだキャラクター1体に3ダメージを与える。";
+   case 30:
+     return "ソング（5）：相手の各キャラクターに2ダメージを与える。";
+   case 31:
+     return "獰猛2（このキャラクターはチャレンジ時のみ攻撃力+2される）。";
    default:
      return "特になし。";
  }
@@ -740,7 +788,7 @@ function showCardDetail(card) {
 
  const statsPart = (card.type === "character")
    ? `<div style="margin-bottom:4px;">ATK:${card.atk} / HP:${card.hp}/${card.maxHp} / ロア:${card.lore}</div>`
-   : `<div style="margin-bottom:4px;">ソングカード</div>`;
+   : `<div style="margin-bottom:4px;">${card.type === "song" ? "ソングカード" : "マジック/スペル"}</div>`;
 
  content.innerHTML = `
    <div style="font-weight:bold; margin-bottom:4px;">${card.name}</div>
@@ -930,7 +978,8 @@ function saveDeck() {
 
 /* ========== CPU設定 ========== */
 let cpuStrength = "normal";
-let cpuColor = "red";
+// CPUデッキに使う色（2色まで）
+let cpuColors = ["red","purple"];
 let playerDeckMode = "default";
 
 function openCpuConfig() {
@@ -942,10 +991,22 @@ function setCpuStrength(s) {
  cpuStrength = s;
  updateCpuButtons();
 }
-function setCpuColor(color) {
- cpuColor = color;
+
+// 色ボタンのトグル（最大2色）
+function toggleCpuColor(color) {
+ const idx = cpuColors.indexOf(color);
+ if (idx >= 0) {
+   cpuColors.splice(idx,1);
+ } else {
+   if (cpuColors.length >= 2) {
+     alert("選べる色は2つまでです。");
+     return;
+   }
+   cpuColors.push(color);
+ }
  updateCpuButtons();
 }
+
 function updateCpuButtons() {
  document.getElementById("btnCpuNormal").classList.toggle("toggle-selected", cpuStrength==="normal");
  document.getElementById("btnCpuStrong").classList.toggle("toggle-selected", cpuStrength==="strong");
@@ -954,7 +1015,7 @@ function updateCpuButtons() {
    const btnId = "cpu" + c.charAt(0).toUpperCase() + c.slice(1);
    const btn = document.getElementById(btnId);
    if (!btn) return;
-   btn.classList.toggle("toggle-selected", cpuColor===c);
+   btn.classList.toggle("toggle-selected", cpuColors.includes(c));
  });
 }
 
@@ -1021,6 +1082,9 @@ let freezeTargets = [];
 let arienaiState = null;   // { owner, revealed: [cardInst], stage: 'choose'|'order' }
 let pretzelState = null;   // { owner, targets:[{index,name,damage,heal}], totalHeal, maxHeal }
 
+/* ジーユー／スラッシュ用 */
+let giyuOwnerSide = null;
+
 /* ========== インク関連（リン対応） ========== */
 function ownerHasLin(owner) {
  return owner.field.some(card => card.id === ID_LIN);
@@ -1031,13 +1095,21 @@ function getMaxInkPerTurn(owner) {
  return base;
 }
 
-/* ========== リンのロア動的更新 ========== */
+/* ========== リンのロア動的更新＋カメレオン回避 ========== */
 function updateLinLore() {
  if (!battle) return;
  [battle.player, battle.cpu].forEach(owner => {
    owner.field.forEach(card => {
      if (card.id === ID_LIN) {
        card.lore = (owner.inkTotal >= 10 ? 5 : 1);
+     }
+   });
+
+   // カメレオン：他のキャラがいる間だけ回避を得る
+   owner.field.forEach(card => {
+     if (card.id === ID_CHAMELEON) {
+       const others = owner.field.filter(c => c !== card);
+       card.evade = (others.length > 0);
      }
    });
  });
@@ -1060,6 +1132,16 @@ function sendCharacterToInk(owner, index) {
  owner.inkTotal++;
  owner.inkAvail++;
  addLog(`「${card.name}」はコストに送られた。`);
+}
+
+/* ========== 攻撃力計算（獰猛2対応） ========== */
+function getAttackPower(card, asChallenger) {
+ if (!card) return 0;
+ let atk = card.atk;
+ if (asChallenger && card.ferocious) {
+   atk += card.ferocious;
+ }
+ return atk;
 }
 
 /* ========== プレイヤーターン開始 ========== */
@@ -1252,6 +1334,16 @@ function useSongFromHand(index) {
    } else {
      selectCharacterForSongToInk("cpu");
    }
+ } else if (card.effect === "hiyariDiscard") {
+   doHiyariEffect(battle.player);
+ } else if (card.effect === "tiramisuDraw3") {
+   doTiramisuEffect(battle.player);
+ } else if (card.effect === "ahnwResetHands") {
+   doAhnwEffect();
+ } else if (card.effect === "slash3Damage") {
+   startSlashSelect("player");
+ } else if (card.effect === "stabAoE2") {
+   doStabAllEffect(battle.player);
  }
 
  document.getElementById("actionArea").textContent = "ソングを使用しました。";
@@ -1306,6 +1398,11 @@ function playFromHand(index) {
      } else if (card.effect === "arienaiSearchSong") {
        doArienaiEffect(p);
        openedEffectPopup = true;
+     } else if (card.effect === "giyuBounce") {
+       doGiyuEffect(p);
+       openedEffectPopup = true;
+     } else if (card.effect === "majoDraw1") {
+       doMajoEffect(p);
      }
 
      updateBattleView();
@@ -1341,6 +1438,11 @@ function playFromHand(index) {
  } else if (card.effect === "arienaiSearchSong") {
    doArienaiEffect(p);
    openedEffectPopup = true;
+ } else if (card.effect === "giyuBounce") {
+   doGiyuEffect(p);
+   openedEffectPopup = true;
+ } else if (card.effect === "majoDraw1") {
+   doMajoEffect(p);
  }
 
  updateBattleView();
@@ -1923,8 +2025,11 @@ function challengeTarget(cpuIndex) {
    return;
  }
 
- target.hp   -= attacker.atk;
- attacker.hp -= target.atk;
+ const attackerPower = getAttackPower(attacker, true);
+ const targetPower   = getAttackPower(target, false);
+
+ target.hp   -= attackerPower;
+ attacker.hp -= targetPower;
  attacker.rest = true;
 
  addLog(`「${attacker.name}」が「${target.name}」にチャレンジ！`);
@@ -1999,6 +2104,16 @@ function songCast(charIndex, songIndex, freeCast) {
    } else {
      selectCharacterForSongToInk("cpu");
    }
+ } else if (spell.effect === "hiyariDiscard") {
+   doHiyariEffect(battle.player);
+ } else if (spell.effect === "tiramisuDraw3") {
+   doTiramisuEffect(battle.player);
+ } else if (spell.effect === "ahnwResetHands") {
+   doAhnwEffect();
+ } else if (spell.effect === "slash3Damage") {
+   startSlashSelect("player");
+ } else if (spell.effect === "stabAoE2") {
+   doStabAllEffect(battle.player);
  }
 
  document.getElementById("actionArea").textContent = "ソングを使用しました。";
@@ -2108,6 +2223,10 @@ function cpuTurn() {
      doPretzelEffect(c);
    } else if (card.effect === "arienaiSearchSong") {
      doArienaiEffect(c);
+   } else if (card.effect === "giyuBounce") {
+     doGiyuEffect(c);
+   } else if (card.effect === "majoDraw1") {
+     doMajoEffect(c);
    }
  }
 
@@ -2135,16 +2254,18 @@ function cpuActionPhase() {
    const hasTargets = targets.length > 0;
    const canSeek = attacker.lore > 0;
 
+   const attackerPower = getAttackPower(attacker, true);
+
    if (cpuStrength === "strong") {
      let chosenTarget = null;
 
      if (hasTargets) {
-       let killable = targets.filter(t => t.hp <= attacker.atk);
+       let killable = targets.filter(t => t.hp <= attackerPower);
        if (killable.length) {
          killable.sort((a,b)=>a.hp-b.hp || (b.lore - a.lore));
          chosenTarget = killable[0];
        } else {
-         let safe = targets.filter(t => attacker.hp > t.atk);
+         let safe = targets.filter(t => attacker.hp > getAttackPower(t, false));
          if (safe.length) {
            safe.sort((a,b)=>b.lore - a.lore);
            chosenTarget = safe[0];
@@ -2158,8 +2279,9 @@ function cpuActionPhase() {
      if (chosenTarget) {
        const cpuIndex = p.field.indexOf(chosenTarget);
        if (cpuIndex >= 0) {
-         chosenTarget.hp   -= attacker.atk;
-         attacker.hp       -= chosenTarget.atk;
+         const targetPower = getAttackPower(chosenTarget, false);
+         chosenTarget.hp -= attackerPower;
+         attacker.hp     -= targetPower;
          attacker.rest = true;
 
          addLog(`CPUの「${attacker.name}」が「${chosenTarget.name}」にチャレンジ！`);
@@ -2191,8 +2313,9 @@ function cpuActionPhase() {
          const target = targets[Math.floor(Math.random()*targets.length)];
          const cpuIndex = p.field.indexOf(target);
          if (cpuIndex >= 0) {
-           target.hp   -= attacker.atk;
-           attacker.hp -= target.atk;
+           const targetPower = getAttackPower(target, false);
+           target.hp   -= attackerPower;
+           attacker.hp -= targetPower;
            attacker.rest = true;
            addLog(`CPUの「${attacker.name}」が「${target.name}」にチャレンジ！`);
            if (target.hp <= 0) {
@@ -2222,6 +2345,198 @@ function cpuActionPhase() {
  }
 
  updateBattleView();
+}
+
+/* ========== 新カード用 追加効果処理 ========== */
+
+// 背筋がヒヤリ：相手は手札から1枚捨てる（ランダム）
+function doHiyariEffect(owner) {
+ if (!battle) return;
+ const target = (owner === battle.player) ? battle.cpu : battle.player;
+ if (!target.hand.length) {
+   addLog("「背筋がヒヤリ」の効果：相手の手札がないため不発。");
+   return;
+ }
+ const idx = Math.floor(Math.random()*target.hand.length);
+ const discarded = target.hand.splice(idx,1)[0];
+ addLog(`「背筋がヒヤリ」の効果で相手は「${discarded.name}」を捨てた。`);
+}
+
+// ティラミスのたくらみ：3ドロー
+function doTiramisuEffect(owner) {
+ if (!battle) return;
+ let drawn = 0;
+ for (let i=0;i<3;i++) {
+   if (drawOne(owner)) drawn++;
+ }
+ addLog(`「ティラミスのたくらみ」の効果で${drawn}枚ドローした。`);
+}
+
+// マジョ：召喚時1ドロー
+function doMajoEffect(owner) {
+ if (!battle) return;
+ if (drawOne(owner)) {
+   addLog(`「マジョ」の効果で1枚ドローした。`);
+ } else {
+   addLog("「マジョ」の効果：山札がなくドローできなかった。");
+ }
+}
+
+// AHNW：お互いの手札を捨てて7ドロー
+function doAhnwEffect() {
+ if (!battle) return;
+ const p = battle.player;
+ const c = battle.cpu;
+
+ const pCount = p.hand.length;
+ const cCount = c.hand.length;
+ p.hand = [];
+ c.hand = [];
+ addLog(`「AHNW」の効果でお互いの手札をすべて捨てた。（自分${pCount}枚／相手${cCount}枚）`);
+
+ for (let i=0;i<7;i++) {
+   drawOne(p);
+   drawOne(c);
+ }
+ addLog("「AHNW」の効果でお互い7枚ドローした。");
+}
+
+// ジーユー：相手のキャラ1体を相手の手札に戻す
+function doGiyuEffect(owner) {
+ if (!battle) return;
+ const opponent = (owner === battle.player) ? battle.cpu : battle.player;
+
+ if (opponent.field.length === 0) {
+   addLog("「ジーユー」の効果：戻す相手キャラがいない。");
+   return;
+ }
+
+ // CPU側のジーユーは自動で一番コスト（→攻撃力）が高いキャラを戻す
+ if (owner === battle.cpu) {
+   let idx = 0;
+   for (let i=1;i<opponent.field.length;i++) {
+     const a = opponent.field[i];
+     const b = opponent.field[idx];
+     if (a.cost > b.cost || (a.cost === b.cost && a.atk > b.atk)) {
+       idx = i;
+     }
+   }
+   const target = opponent.field.splice(idx,1)[0];
+   opponent.hand.push(target);
+   addLog(`CPUの「ジーユー」の効果で「${target.name}」が手札に戻された。`);
+   updateBattleView();
+   return;
+ }
+
+ // プレイヤー側：ポップアップで選択
+ giyuOwnerSide = (owner === battle.player) ? "player" : "cpu";
+
+ const overlay = document.getElementById("cardDetailOverlay");
+ const content = document.getElementById("cardDetailContent");
+ if (!overlay || !content) return;
+
+ let html = `<div style="font-weight:bold; margin-bottom:6px;">「ジーユー」の効果：戻す相手キャラを1体選んでください</div>`;
+ opponent.field.forEach((card, idx) => {
+   html += `<button class="btn small" style="width:100%; margin-bottom:4px;"
+             onclick="giyuBounceChosen(${idx})">${card.name}</button>`;
+ });
+ html += `<button class="btn small" style="width:100%; margin-top:4px;"
+           onclick="giyuCancel()">戻さない（キャンセル）</button>`;
+
+ content.innerHTML = html;
+ overlay.style.display = "block";
+}
+
+function giyuBounceChosen(index) {
+ if (!battle) return;
+ const owner = (giyuOwnerSide === "player") ? battle.player : battle.cpu;
+ const opponent = (owner === battle.player) ? battle.cpu : battle.player;
+ if (!opponent.field[index]) return;
+ const target = opponent.field.splice(index,1)[0];
+ opponent.hand.push(target);
+ addLog(`「ジーユー」の効果で「${target.name}」を相手の手札に戻した。`);
+ giyuOwnerSide = null;
+ closeCardDetail();
+ updateBattleView();
+}
+
+function giyuCancel() {
+ addLog("「ジーユー」の効果を使用しなかった。");
+ giyuOwnerSide = null;
+ closeCardDetail();
+ updateBattleView();
+}
+
+// スラッシュ！：好きなキャラ1体に3ダメージ（プレイヤーはポップアップ選択）
+function startSlashSelect(ownerSide) {
+ if (!battle) return;
+ const overlay = document.getElementById("cardDetailOverlay");
+ const content = document.getElementById("cardDetailContent");
+ if (!overlay || !content) return;
+
+ let html = `<div style="font-weight:bold; margin-bottom:6px;">「スラッシュ！」の対象を選んでください（3ダメージ）</div>`;
+
+ if (battle.player.field.length) {
+   html += `<div style="margin-bottom:4px; font-size:12px;">自分のキャラ</div>`;
+   battle.player.field.forEach((card, idx) => {
+     html += `<button class="btn small" style="width:100%; margin-bottom:2px;"
+               onclick="slashChosen('player',${idx})">${card.name}</button>`;
+   });
+ }
+ if (battle.cpu.field.length) {
+   html += `<div style="margin:6px 0 4px; font-size:12px;">相手のキャラ</div>`;
+   battle.cpu.field.forEach((card, idx) => {
+     html += `<button class="btn small" style="width:100%; margin-bottom:2px;"
+               onclick="slashChosen('cpu',${idx})">${card.name}</button>`;
+   });
+ }
+
+ html += `<button class="btn small" style="width:100%; margin-top:4px;"
+           onclick="closeCardDetail()">キャンセル</button>`;
+
+ content.innerHTML = html;
+ overlay.style.display = "block";
+}
+
+function slashChosen(side, index) {
+ if (!battle) return;
+ const owner = (side === "player") ? battle.player : battle.cpu;
+ const card = owner.field[index];
+ if (!card) return;
+
+ card.hp -= 3;
+ addLog(`「スラッシュ！」の効果で「${card.name}」に3ダメージ！`);
+
+ if (card.hp <= 0) {
+   owner.field.splice(index,1);
+   onCardDestroyed(owner, card);
+   addLog(`「${card.name}」は退場した。`);
+ }
+
+ closeCardDetail();
+ updateBattleView();
+}
+
+// 剣で刺せ：相手の各キャラに2ダメージ
+function doStabAllEffect(owner) {
+ if (!battle) return;
+ const opponent = (owner === battle.player) ? battle.cpu : battle.player;
+
+ if (!opponent.field.length) {
+   addLog("「剣で刺せ」の効果：相手の場にキャラがいない。");
+   return;
+ }
+
+ for (let i = opponent.field.length - 1; i >= 0; i--) {
+   const card = opponent.field[i];
+   card.hp -= 2;
+   addLog(`「剣で刺せ」の効果で「${card.name}」に2ダメージ！`);
+   if (card.hp <= 0) {
+     opponent.field.splice(i,1);
+     onCardDestroyed(opponent, card);
+     addLog(`「${card.name}」は退場した。`);
+   }
+ }
 }
 
 /* ========== 勝敗判定 ========== */
@@ -2256,6 +2571,12 @@ function addLog(text) {
 
 /* ========== バトル開始 / 終了 ========== */
 function startBattle() {
+ // CPUデッキ用の色チェック（2色必須）
+ if (cpuColors.length !== 2) {
+   alert("CPUデッキに使う色を2つ選んでください。");
+   return;
+ }
+
  let playerDeckCards = [];
 
  if (playerDeckMode.startsWith("deck")) {
@@ -2268,6 +2589,7 @@ function startBattle() {
  }
 
  if (playerDeckCards.length === 0) {
+   // デフォルト赤デッキ（既存仕様のまま）
    for (let i=0;i<52;i++) playerDeckCards.push(makeCardInstance(cards[0]));
    playerDeckCards.push(makeCardInstance(cards[6]));
    playerDeckCards.push(makeCardInstance(cards[6]));
@@ -2276,20 +2598,24 @@ function startBattle() {
    playerDeckCards.push(makeCardInstance(cards[11]));
  }
 
+ // ==== CPUデッキ：選ばれた2色から各30枚ずつ ====
  let cpuDeckCards = [];
- const baseN  = cards.filter(c => c.rarity==="N"  && c.color===cpuColor);
- const baseSR = cards.filter(c => c.rarity==="SR" && cpuStrength!=="normal");
- const baseL  = cards.filter(c => c.rarity==="L"  && cpuStrength==="strong");
+ cpuColors.forEach(color => {
+   // その色のNレアを優先（なければその色の全カード）
+   let pool = cards.filter(c => c.color === color && c.rarity === "N");
+   if (!pool.length) {
+     pool = cards.filter(c => c.color === color);
+   }
+   if (!pool.length) {
+     // 保険：色が見つからなければ全Nから
+     pool = cards.filter(c => c.rarity === "N");
+   }
 
- for (let i=0;i<56;i++){
-   const src = baseN.length ? baseN : cards.filter(c=>c.rarity==="N");
-   cpuDeckCards.push(makeCardInstance(src[i % src.length]));
- }
- if (baseSR.length) cpuDeckCards.push(makeCardInstance(baseSR[0]));
- if (baseL.length)  cpuDeckCards.push(makeCardInstance(baseL[0]));
- while (cpuDeckCards.length < 60) {
-   cpuDeckCards.push(makeCardInstance(cards[0]));
- }
+   for (let i=0;i<30;i++) {
+     const base = pool[i % pool.length];
+     cpuDeckCards.push(makeCardInstance(base));
+   }
+ });
 
  shuffle(playerDeckCards);
  shuffle(cpuDeckCards);
