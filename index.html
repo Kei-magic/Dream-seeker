@@ -523,7 +523,7 @@ const cards = [
  // 青
  {id:12, name:"ゴーズ",       color:"blue",   type:"character", cost:7, atk:3, hp:6, lore:2, rarity:"L",  inkable:false, effect:"toInkOnSummon"},
  {id:13, name:"リン",         color:"blue",   type:"character", cost:4, atk:2, hp:4, lore:1, rarity:"L",  inkable:true},
- {id:14, name:"らたばあ",     color:"blue",   type:"character", cost:1, atk:1, hp:1, lore:0, rarity:"N",  inkable:true},
+ {id:14, name:"らたばあ",     color:"blue",   type:"character", cost:1, atk:1, hp:1, lore:1, rarity:"N",  inkable:true},
  {id:15, name:"ありのままで", color:"blue",   type:"song",      cost:5, atk:0, hp:0, lore:0, rarity:"SR", inkable:true,  effect:"songToInk1"},
 
  // 黄
@@ -681,7 +681,7 @@ function openPack() {
 function getCardEffectText(card) {
  switch(card.id) {
    case 6:
-     return "ソング（7）：場のすべてのキャラを破壊する。キャラが歌う場合、コストを支払わずに使用できる。";
+     return "ソング（7）：場のすべてのキャラを破壊する。キャラが歌う場合、コストを支払わずに使用できる。使用後、このカードは破壊される。";
    case 7:
      return "変身6：自分の「カー」から変身できる。\n召喚時：相手のキャラを最大2体まで凍結する。凍結中のキャラは行動できない。";
    case 8:
@@ -697,9 +697,9 @@ function getCardEffectText(card) {
    case 13:
      return "①このキャラが場にいる間、自分は1ターンに置けるインクが1枚増える。\n②自分のコストが10枚以上ある間、このキャラのロアは5になる。";
    case 14:
-     return "このカードが破壊されたとき、墓地に行かずコストゾーンに置かれる。";
+     return "ロア1。\nこのカードが破壊されたとき、墓地に行かずコストゾーンに置かれる。";
    case 15:
-     return "ソング（5）：相手の場の好きなキャラ1体をコストゾーンに送る。キャラが歌う場合、コストを支払わずに使用できる。";
+     return "ソング（5）：相手の場の好きなキャラ1体をコストゾーンに送る。使用後、このカードは破壊される。";
    case 16:
      return "召喚時：自分の場のキャラから合計3ダメージまで好きなように回復し、その回復したダメージの数だけ追加でドローする。";
    case 17:
@@ -1111,20 +1111,26 @@ function updateBattleView() {
    const btnArea = document.createElement("div");
    btnArea.className = "card-footer-buttons";
 
+   // インクボタン
    const inkBtn = document.createElement("button");
    inkBtn.className = "btn small";
    inkBtn.textContent = "インク";
    inkBtn.onclick = (e)=>{ e.stopPropagation(); inkFromHand(idx); };
-
-   const summonBtn = document.createElement("button");
-   summonBtn.className = "btn small";
-   summonBtn.textContent = "召喚";
-   summonBtn.onclick = (e)=>{ e.stopPropagation(); playFromHand(idx); };
-
    btnArea.appendChild(inkBtn);
-   btnArea.appendChild(summonBtn);
-   cardEl.appendChild(btnArea);
 
+   // 召喚 or 使用ボタン
+   const actionBtn = document.createElement("button");
+   actionBtn.className = "btn small";
+   if (card.type === "song") {
+     actionBtn.textContent = "使用";
+     actionBtn.onclick = (e)=>{ e.stopPropagation(); useSongFromHand(idx); };
+   } else {
+     actionBtn.textContent = "召喚";
+     actionBtn.onclick = (e)=>{ e.stopPropagation(); playFromHand(idx); };
+   }
+   btnArea.appendChild(actionBtn);
+
+   cardEl.appendChild(btnArea);
    ph.appendChild(cardEl);
  });
 
@@ -1163,6 +1169,42 @@ function inkFromHand(index) {
  updateBattleView();
 }
 
+/* ====== ソングを手札から「使用」 ====== */
+function useSongFromHand(index) {
+ if (!battle) return;
+ const p = battle.player;
+ const card = p.hand[index];
+ if (!card || card.type !== "song") return;
+
+ if (p.inkAvail < card.cost) {
+   alert("インクが足りません。");
+   return;
+ }
+
+ p.inkAvail -= card.cost;
+ p.hand.splice(index,1); // 使用したソングは破壊扱い（墓地管理なし）
+
+ addLog(`「${card.name}」を使用し、破壊された。`);
+
+ if (card.effect === "boardwipe") {
+   battle.player.field.forEach(cd => onCardDestroyed(battle.player, cd));
+   battle.cpu.field.forEach(cd => onCardDestroyed(battle.cpu, cd));
+   battle.player.field = [];
+   battle.cpu.field = [];
+   addLog("終焉の大火が発動！場のキャラはすべて破壊された！");
+ } else if (card.effect === "songToInk1") {
+   if (battle.cpu.field.length === 0) {
+     addLog("対象のキャラがいないため「ありのままで」は不発。");
+   } else {
+     selectCharacterForSongToInk("cpu");
+   }
+ }
+
+ document.getElementById("actionArea").textContent = "ソングを使用しました。";
+ updateBattleView();
+}
+
+/* ====== キャラでソングを歌う（既存機能） ====== */
 function playFromHand(index) {
  if (!battle) return;
  const p = battle.player;
@@ -1170,6 +1212,13 @@ function playFromHand(index) {
  const card = p.hand[index];
  if (!card) return;
 
+ // ソングカードはここからは使わない（buttonで useSongFromHand を呼ぶ）
+ if (card.type === "song") {
+   useSongFromHand(index);
+   return;
+ }
+
+ // 変身（ケルサ）
  if (card.evolveCost !== undefined) {
    const baseNamePart = "カー";
    let baseIndex = -1;
@@ -1209,6 +1258,7 @@ function playFromHand(index) {
    }
  }
 
+ // 通常召喚
  if (p.inkAvail < card.cost) {
    alert("インクが足りません。");
    return;
@@ -1322,12 +1372,42 @@ function startDestroySelect(ownerSide) {
    "退場させる相手キャラを1体選んでください。";
 }
 
-/* ========== コスト送り選択 ========== */
+/* ========== コスト送り選択（ゴーズ用） ========== */
 function startSendToInkSelect(ownerSide) {
  sendToInkSelectMode = true;
  sendToInkOwner = ownerSide;
  document.getElementById("actionArea").textContent =
    "コストに送るキャラを選んでください。";
+}
+
+/* ========== 「ありのままで」対象選択ポップアップ ========== */
+function selectCharacterForSongToInk(ownerSide) {
+ const owner = (ownerSide === "cpu") ? battle.cpu : battle.player;
+ if (!owner || owner.field.length === 0) return;
+
+ const overlay = document.getElementById("cardDetailOverlay");
+ const content = document.getElementById("cardDetailContent");
+ if (!overlay || !content) return;
+
+ let html = `<div style="font-weight:bold; margin-bottom:6px;">「ありのままで」の対象を選んでください</div>`;
+ owner.field.forEach((card, idx) => {
+   html += `<button class="btn small" style="margin-bottom:4px; width:100%;"
+             onclick="songToInkChosen('${ownerSide}',${idx})">${card.name}</button>`;
+ });
+ html += `<button class="btn small" style="width:100%; margin-top:4px;"
+           onclick="closeCardDetail()">キャンセル</button>`;
+
+ content.innerHTML = html;
+ overlay.style.display = "block";
+}
+
+function songToInkChosen(ownerSide, index) {
+ const owner = (ownerSide === "cpu") ? battle.cpu : battle.player;
+ if (!owner || !owner.field[index]) return;
+ sendCharacterToInk(owner, index);
+ closeCardDetail();
+ document.getElementById("actionArea").textContent = "ソングを使用しました。";
+ updateBattleView();
 }
 
 /* ========== タイタンの強制アタック判定 ========== */
@@ -1348,8 +1428,17 @@ function onPlayerFieldClick(index) {
  const card = p.field[index];
  if (!card) return;
 
+ // 召喚酔い：召喚したターンは行動不可（進化でない普通の出し方）
+ if (card.summonTurn === battle.turnCount && battle.turn === "player") {
+   showCardDetail(card);
+   document.getElementById("actionArea").textContent =
+     "召喚したターンはシーク／チャレンジ／ソングはできません。";
+   return;
+ }
+
  if (card.frozen) {
    alert("このキャラは凍結中です。");
+   showCardDetail(card);
    return;
  }
  if (card.rest) {
@@ -1434,6 +1523,7 @@ function doSeek(index) {
  const card = p.field[index];
  if (!card) return;
  if (card.rest || card.frozen) return;
+
  if (!card.lore) {
    alert("このキャラはロアを持たないため、シークしてもロアは得られません。");
  }
@@ -1495,7 +1585,7 @@ function challengeTarget(cpuIndex) {
  updateBattleView();
 }
 
-/* ========== ソング ========== */
+/* ========== ソング（キャラで歌う） ========== */
 function findSongInHand(maxSongPower) {
  const hand = battle.player.hand;
  for (let i=0;i<hand.length;i++) {
@@ -1511,7 +1601,7 @@ function songAsk(charIndex, songIndex) {
  let html = `
    <div>「${spell.name}」を ${char.name} が歌いますか？</div>
    <button class="btn small" onclick="songCast(${charIndex},${songIndex},true)">キャラで歌う（コスト0）</button>
-   <button class="btn small" onclick="songCast(${charIndex},${songIndex},false)">通常唱える（コスト支払い）</button>
+   <button class="btn small" onclick="songCast(${charIndex},${songIndex},false)">通常使用（コスト支払い）</button>
  `;
  document.getElementById("actionArea").innerHTML = html;
  showCardDetail(spell);
@@ -1533,7 +1623,9 @@ function songCast(charIndex, songIndex, freeCast) {
    }
  }
 
+ // 使用したソングは破壊扱い（領域に置かず消える）
  p.hand.splice(songIndex,1);
+ addLog(`「${spell.name}」を使用し、破壊された。`);
 
  if (spell.effect === "boardwipe") {
    battle.player.field.forEach(card => onCardDestroyed(battle.player, card));
@@ -1545,7 +1637,7 @@ function songCast(charIndex, songIndex, freeCast) {
    if (battle.cpu.field.length === 0) {
      addLog("対象のキャラがいないため「ありのままで」は不発。");
    } else {
-     startSendToInkSelect("cpu");
+     selectCharacterForSongToInk("cpu");
    }
  }
 
@@ -1618,7 +1710,8 @@ function cpuTurn() {
  let bestIndex = -1;
  let bestCost  = -1;
  c.hand.forEach((card, idx) => {
-   if (card.cost <= c.inkAvail && card.cost > bestCost && card.type === "character") {
+   if (card.type !== "character") return;
+   if (card.cost <= c.inkAvail && card.cost > bestCost) {
      bestCost = card.cost;
      bestIndex = idx;
    }
@@ -1673,6 +1766,9 @@ function cpuActionPhase() {
  for (let i=0; i<c.field.length; i++) {
    const attacker = c.field[i];
    if (attacker.rest || attacker.frozen) continue;
+
+   // 召喚ターンは行動不可
+   if (attacker.summonTurn === battle.turnCount) continue;
 
    let targets = p.field.filter(t => t.rest);
    if (!attacker.evade) {
