@@ -267,6 +267,14 @@
      background: #ffffff;
      border-radius: 4px;
      margin-bottom: 3px;
+     overflow: hidden;
+   }
+
+   .card-illustration img {
+     width: 100%;
+     height: 100%;
+     object-fit: cover;
+     display: block;
    }
 
    .card-stats-row {
@@ -467,11 +475,11 @@
  <button class="btn danger" onclick="showScreen('menu')">← メニューに戻る</button>
 </div>
 
-<!-- ===== カード詳細ポップアップ ===== -->
+<!-- ===== カード詳細ポップアップ／各種ポップアップ共用 ===== -->
 <div id="cardDetailOverlay">
  <div id="cardDetailInner">
    <div id="cardDetailContent"></div>
-   <button class="btn" onclick="closeCardDetail()">戻る</button>
+   <button class="btn" onclick="closeCardDetail()">戻る / 閉じる</button>
  </div>
 </div>
 
@@ -632,6 +640,18 @@ function showPack() {
  showScreen("pack");
 }
 
+/* バトルと同じカードデザインを使って表示するための共通描画 */
+function renderSingleCardDivFromBaseCard(baseCard) {
+ const cardInst = makeCardInstance(baseCard);
+ const wrap = document.createElement("div");
+ wrap.style.display = "inline-block";
+ wrap.style.margin = "4px";
+ wrap.innerHTML = renderCardHtml(cardInst);
+ const cardEl = wrap.firstElementChild;
+ cardEl.onclick = () => showCardDetail(cardInst);
+ return wrap;
+}
+
 function openPack() {
  const COST = 5;
  if (stones < COST) {
@@ -669,12 +689,11 @@ function openPack() {
  saveCollection();
 
  const pr = document.getElementById("packResult");
- pr.innerHTML = pulled.map(c => `
-   <div class="card-box ${c.color}" onclick="showCardDetailById(${c.id})">
-     <div class="card-name">${c.name}</div>
-     <div class="card-stats">色:${c.color} / レア:${c.rarity} / 種類:${c.type}</div>
-   </div>
- `).join("");
+ pr.innerHTML = "";
+ pulled.forEach(c => {
+   const cardDiv = renderSingleCardDivFromBaseCard(c);
+   pr.appendChild(cardDiv);
+ });
 }
 
 /* ========== カード詳細ポップアップ ========== */
@@ -741,25 +760,58 @@ function showCardDetailById(id) {
  showCardDetail(inst);
 }
 
+/* アリエナイ／プレッツェルのポップアップでも overlay を使うので
+   「戻る」が押された場合は、効果をキャンセルする挙動にしておく */
 function closeCardDetail() {
  const overlay = document.getElementById("cardDetailOverlay");
  if (overlay) overlay.style.display = "none";
+
+ // アリエナイ効果中なら「キャンセル」としてカードをデッキに戻す
+ if (arienaiState && arienaiState.owner && arienaiState.revealed) {
+   const owner = arienaiState.owner;
+   const arr = arienaiState.revealed;
+   for (let i = arr.length - 1; i >= 0; i--) {
+     owner.deck.push(arr[i]);
+   }
+   addLog("「アリエナイ」の効果をキャンセルし、カードを山札に戻した。");
+   arienaiState = null;
+ }
+
+ // プレッツェルもキャンセル扱い
+ if (pretzelState) {
+   addLog("「プレッツェル」の効果をキャンセルした。");
+   pretzelState = null;
+ }
 }
 
 /* ========== コレクション ========== */
 function openCollection() {
  const list = document.getElementById("collectionList");
- let html = "";
+ list.innerHTML = "";
+
  cards.forEach(c => {
    const cnt = collection[c.id] || 0;
-   html += `
-     <div class="card-box ${c.color}" onclick="showCardDetailById(${c.id})">
-       <div class="card-name">${c.name}</div>
-       <div class="card-stats">色:${c.color} / レア:${c.rarity} / 種類:${c.type}</div>
-       <div class="card-stats">所持枚数: ×${cnt}</div>
-     </div>`;
+   const row = document.createElement("div");
+   row.style.display = "flex";
+   row.style.alignItems = "center";
+   row.style.gap = "8px";
+   row.style.marginBottom = "4px";
+
+   const cardDiv = renderSingleCardDivFromBaseCard(c);
+   row.appendChild(cardDiv);
+
+   const info = document.createElement("div");
+   info.style.fontSize = "12px";
+   info.innerHTML = `
+     <div>${c.name}</div>
+     <div>色:${c.color} / レア:${c.rarity} / 種類:${c.type}</div>
+     <div>所持枚数: ×${cnt}</div>
+   `;
+   row.appendChild(info);
+
+   list.appendChild(row);
  });
- list.innerHTML = html;
+
  showScreen("collection");
 }
 
@@ -965,6 +1017,10 @@ let sendToInkOwner = null;
 
 let freezeTargets = [];
 
+/* アリエナイ／プレッツェル用の状態 */
+let arienaiState = null;   // { owner, revealed: [cardInst], stage: 'choose'|'order' }
+let pretzelState = null;   // { owner, targets:[{index,name,damage,heal}], totalHeal, maxHeal }
+
 /* ========== インク関連（リン対応） ========== */
 function ownerHasLin(owner) {
  return owner.field.some(card => card.id === ID_LIN);
@@ -1111,14 +1167,12 @@ function updateBattleView() {
    const btnArea = document.createElement("div");
    btnArea.className = "card-footer-buttons";
 
-   // インクボタン
    const inkBtn = document.createElement("button");
    inkBtn.className = "btn small";
    inkBtn.textContent = "インク";
    inkBtn.onclick = (e)=>{ e.stopPropagation(); inkFromHand(idx); };
    btnArea.appendChild(inkBtn);
 
-   // 召喚 or 使用ボタン
    const actionBtn = document.createElement("button");
    actionBtn.className = "btn small";
    if (card.type === "song") {
@@ -1182,7 +1236,7 @@ function useSongFromHand(index) {
  }
 
  p.inkAvail -= card.cost;
- p.hand.splice(index,1); // 使用したソングは破壊扱い（墓地管理なし）
+ p.hand.splice(index,1);
 
  addLog(`「${card.name}」を使用し、破壊された。`);
 
@@ -1204,7 +1258,7 @@ function useSongFromHand(index) {
  updateBattleView();
 }
 
-/* ====== キャラでソングを歌う（既存機能） ====== */
+/* ====== キャラでソングを歌う ====== */
 function playFromHand(index) {
  if (!battle) return;
  const p = battle.player;
@@ -1212,7 +1266,6 @@ function playFromHand(index) {
  const card = p.hand[index];
  if (!card) return;
 
- // ソングカードはここからは使わない（buttonで useSongFromHand を呼ぶ）
  if (card.type === "song") {
    useSongFromHand(index);
    return;
@@ -1243,17 +1296,22 @@ function playFromHand(index) {
      p.field[baseIndex] = card;
      p.hand.splice(index,1);
      addLog(`「${base.name}」は「${card.name}」に変身した！`);
+
+     let openedEffectPopup = false;
      if (card.effect === "freeze2") {
        startFreezeSelect();
-     }
-     if (card.effect === "pretzelHealDraw") {
+     } else if (card.effect === "pretzelHealDraw") {
        doPretzelEffect(p);
-     }
-     if (card.effect === "arienaiSearchSong") {
+       openedEffectPopup = true;
+     } else if (card.effect === "arienaiSearchSong") {
        doArienaiEffect(p);
+       openedEffectPopup = true;
      }
+
      updateBattleView();
-     showCardDetail(card);
+     if (!openedEffectPopup) {
+       showCardDetail(card);
+     }
      return;
    }
  }
@@ -1270,6 +1328,7 @@ function playFromHand(index) {
  p.field.push(card);
  addLog(`「${card.name}」を召喚した。`);
 
+ let openedEffectPopup = false;
  if (card.effect === "freeze2") {
    startFreezeSelect();
  } else if (card.effect === "destroyOnSummon") {
@@ -1278,22 +1337,171 @@ function playFromHand(index) {
    startSendToInkSelect("cpu");
  } else if (card.effect === "pretzelHealDraw") {
    doPretzelEffect(p);
+   openedEffectPopup = true;
  } else if (card.effect === "arienaiSearchSong") {
    doArienaiEffect(p);
+   openedEffectPopup = true;
  }
 
  updateBattleView();
- showCardDetail(card);
+ if (!openedEffectPopup) {
+   showCardDetail(card);
+ }
 }
 
-/* ========== プレッツェル効果 ========== */
+/* ========== ドローの共通関数（プレッツェル用など） ========== */
 function drawOne(owner) {
  if (!owner.deck.length) return false;
  owner.hand.push(owner.deck.pop());
  return true;
 }
 
+/* ========== プレッツェル効果（プレイヤーはポップアップで選択 / CPUは自動） ========== */
 function doPretzelEffect(owner) {
+ if (!battle) return;
+
+ if (owner === battle.cpu) {
+   doPretzelCpuEffect(owner);
+   return;
+ }
+
+ const targets = owner.field.map((c, idx) => {
+   const dmg = c.maxHp - c.hp;
+   return {
+     index: idx,
+     name: c.name,
+     damage: dmg,
+     heal: 0
+   };
+ }).filter(t => t.damage > 0);
+
+ pretzelState = {
+   owner,
+   targets,
+   totalHeal: 0,
+   maxHeal: 3
+ };
+
+ const overlay = document.getElementById("cardDetailOverlay");
+ const content = document.getElementById("cardDetailContent");
+ if (!overlay || !content) return;
+
+ if (targets.length === 0) {
+   content.innerHTML = `
+     <div style="margin-bottom:6px;">「プレッツェル」の効果：回復できるダメージを持つキャラがいません。</div>
+     <div>そのまま効果は終了します。</div>
+   `;
+   overlay.style.display = "block";
+   return;
+ }
+
+ renderPretzelPopup();
+}
+
+function renderPretzelPopup() {
+ if (!pretzelState) return;
+ const overlay = document.getElementById("cardDetailOverlay");
+ const content = document.getElementById("cardDetailContent");
+ if (!overlay || !content) return;
+
+ const st = pretzelState;
+ let html = `
+   <div style="font-weight:bold; margin-bottom:6px;">プレッツェル：回復＆ドロー</div>
+   <div style="font-size:12px; margin-bottom:4px;">
+     自分の場のキャラから合計${st.maxHeal}ダメージまで回復できます。<br>
+     回復した合計ダメージ分カードをドローします（0〜3枚 OK）。
+   </div>
+   <div style="font-size:12px; margin-bottom:6px;">
+     現在の合計回復予定：<b>${st.totalHeal}</b> / ${st.maxHeal}
+   </div>
+ `;
+
+ st.targets.forEach((t, i) => {
+   html += `
+     <div style="border:1px solid #555; border-radius:6px; padding:4px; margin-bottom:4px;">
+       <div style="font-weight:bold;">${t.name}</div>
+       <div style="font-size:12px;">現在のダメージ：${t.damage}</div>
+       <div style="margin-top:2px; font-size:12px; display:flex; align-items:center; gap:4px;">
+         <button class="btn small" style="flex:none;" onclick="pretzelAdjust(${i}, -1)">－</button>
+         <span>回復予定：${t.heal}</span>
+         <button class="btn small" style="flex:none;" onclick="pretzelAdjust(${i}, 1)">＋</button>
+       </div>
+     </div>
+   `;
+ });
+
+ html += `
+   <div style="margin-top:6px; display:flex; gap:4px; flex-wrap:wrap;">
+     <button class="btn small primary" onclick="pretzelConfirm()">選択終了（実行）</button>
+     <button class="btn small" onclick="pretzelCancel()">回復0で終了</button>
+   </div>
+ `;
+
+ content.innerHTML = html;
+ overlay.style.display = "block";
+}
+
+function pretzelAdjust(index, delta) {
+ if (!pretzelState) return;
+ const st = pretzelState;
+ const t = st.targets[index];
+ if (!t) return;
+
+ const newHeal = t.heal + delta;
+ if (newHeal < 0) return;
+ if (newHeal > t.damage) return;
+
+ const newTotal = st.totalHeal + delta;
+ if (newTotal < 0 || newTotal > st.maxHeal) return;
+
+ t.heal = newHeal;
+ st.totalHeal = newTotal;
+ renderPretzelPopup();
+}
+
+function pretzelConfirm() {
+ if (!pretzelState) return;
+ const st = pretzelState;
+ const owner = st.owner;
+ let total = 0;
+
+ st.targets.forEach(t => {
+   if (t.heal > 0) {
+     const card = owner.field[t.index];
+     if (!card) return;
+     card.hp = Math.min(card.maxHp, card.hp + t.heal);
+     total += t.heal;
+   }
+ });
+
+ for (let i = 0; i < total; i++) {
+   drawOne(owner);
+ }
+
+ if (total > 0) {
+   if (owner === battle.player) {
+     addLog(`「プレッツェル」の効果で合計${total}ダメージを回復し、${total}枚ドローした。`);
+   } else {
+     addLog(`CPUの「プレッツェル」の効果で${total}回復＆${total}ドロー。`);
+   }
+ } else {
+   addLog("「プレッツェル」の効果を使用しましたが、回復・ドローは0でした。");
+ }
+
+ pretzelState = null;
+ closeCardDetail();
+ updateBattleView();
+}
+
+function pretzelCancel() {
+ if (!pretzelState) return;
+ addLog("「プレッツェル」の効果を使わずに終了した。");
+ pretzelState = null;
+ closeCardDetail();
+ updateBattleView();
+}
+
+function doPretzelCpuEffect(owner) {
  let healed = 0;
  while (healed < 3) {
    const target = owner.field.find(c => c.hp < c.maxHp);
@@ -1313,8 +1521,162 @@ function doPretzelEffect(owner) {
  }
 }
 
-/* ========== アリエナイ効果 ========== */
+/* ========== アリエナイ効果（プレイヤーは選択＋順番指定） ========== */
 function doArienaiEffect(owner) {
+ if (!battle) return;
+
+ if (owner === battle.cpu) {
+   doArienaiCpuEffect(owner);
+   return;
+ }
+
+ const temp = [];
+ for (let i=0;i<4 && owner.deck.length;i++) {
+   temp.push(owner.deck.pop());
+ }
+ if (temp.length === 0) {
+   addLog("「アリエナイ」の効果：山札がありません。");
+   return;
+ }
+
+ arienaiState = {
+   owner,
+   revealed: temp,
+   stage: "choose"
+ };
+
+ showArienaiChoosePopup();
+}
+
+function showArienaiChoosePopup() {
+ if (!arienaiState) return;
+ const overlay = document.getElementById("cardDetailOverlay");
+ const content = document.getElementById("cardDetailContent");
+ if (!overlay || !content) return;
+
+ const st = arienaiState;
+ let html = `
+   <div style="font-weight:bold; margin-bottom:6px;">アリエナイ：デッキの上から4枚を見る</div>
+   <div style="font-size:12px; margin-bottom:6px;">
+     下に表示されているカードのうち、ソングカードを1枚まで選んで手札に加えます。<br>
+     選ばなかったカードは、このあと順番を指定してデッキの一番下に戻します。
+   </div>
+ `;
+
+ st.revealed.forEach((card, idx) => {
+   const isSong = (card.type === "song");
+   html += `
+     <div style="border:1px solid ${isSong ? '#facc15' : '#555'}; border-radius:6px; padding:4px; margin-bottom:4px;">
+       <div style="font-weight:bold;">${card.name}</div>
+       <div style="font-size:12px;">種類:${card.type} / 色:${card.color}</div>
+       <div style="margin-top:4px;">
+         <button class="btn small" ${isSong ? `onclick="arienaiChooseSong(${idx})"` : "disabled"}>このソングを手札に加える</button>
+       </div>
+     </div>
+   `;
+ });
+
+ html += `
+   <div style="margin-top:6px;">
+     <button class="btn small" onclick="arienaiSkipSong()">ソングを選ばない</button>
+   </div>
+ `;
+
+ content.innerHTML = html;
+ overlay.style.display = "block";
+}
+
+function arienaiChooseSong(index) {
+ if (!arienaiState) return;
+ const st = arienaiState;
+ const card = st.revealed[index];
+ if (!card || card.type !== "song") return;
+
+ st.owner.hand.push(card);
+ st.revealed.splice(index, 1);
+ addLog(`「アリエナイ」の効果でソング「${card.name}」を手札に加えた。`);
+
+ st.stage = "order";
+ showArienaiOrderPopup();
+}
+
+function arienaiSkipSong() {
+ if (!arienaiState) return;
+ arienaiState.stage = "order";
+ showArienaiOrderPopup();
+}
+
+function showArienaiOrderPopup() {
+ if (!arienaiState) return;
+ const overlay = document.getElementById("cardDetailOverlay");
+ const content = document.getElementById("cardDetailContent");
+ if (!overlay || !content) return;
+
+ const st = arienaiState;
+ let html = `
+   <div style="font-weight:bold; margin-bottom:6px;">アリエナイ：残りのカードをデッキの下に戻す</div>
+   <div style="font-size:12px; margin-bottom:6px;">
+     下に並んでいる順番で、上にあるカードから順に「デッキの一番下」に置かれます。<br>
+     （つまりリストの一番下のカードが、いちばん上側に近い位置になります）
+   </div>
+ `;
+
+ st.revealed.forEach((card, idx) => {
+   html += `
+     <div style="border:1px solid #555; border-radius:6px; padding:4px; margin-bottom:4px;">
+       <div style="font-weight:bold;">${card.name}</div>
+       <div style="font-size:12px;">種類:${card.type} / 色:${card.color}</div>
+       <div style="margin-top:4px; display:flex; gap:4px;">
+         <button class="btn small" onclick="arienaiMoveUp(${idx})">↑ 上へ</button>
+         <button class="btn small" onclick="arienaiMoveDown(${idx})">↓ 下へ</button>
+       </div>
+     </div>
+   `;
+ });
+
+ html += `
+   <div style="margin-top:6px;">
+     <button class="btn small primary" onclick="arienaiConfirmOrder()">この順番でデッキの下に置く</button>
+   </div>
+ `;
+
+ content.innerHTML = html;
+ overlay.style.display = "block";
+}
+
+function arienaiMoveUp(index) {
+ if (!arienaiState) return;
+ if (index === 0) return;
+ const arr = arienaiState.revealed;
+ [arr[index-1], arr[index]] = [arr[index], arr[index-1]];
+ showArienaiOrderPopup();
+}
+
+function arienaiMoveDown(index) {
+ if (!arienaiState) return;
+ const arr = arienaiState.revealed;
+ if (index === arr.length - 1) return;
+ [arr[index+1], arr[index]] = [arr[index], arr[index+1]];
+ showArienaiOrderPopup();
+}
+
+function arienaiConfirmOrder() {
+ if (!arienaiState) return;
+ const st = arienaiState;
+ const owner = st.owner;
+
+ for (let i = st.revealed.length - 1; i >= 0; i--) {
+   owner.deck.unshift(st.revealed[i]);
+ }
+
+ addLog("「アリエナイ」の効果で残りのカードをデッキの一番下に戻した。");
+
+ arienaiState = null;
+ closeCardDetail();
+ updateBattleView();
+}
+
+function doArienaiCpuEffect(owner) {
  const temp = [];
  for (let i=0;i<4 && owner.deck.length;i++) {
    temp.push(owner.deck.pop());
@@ -1326,7 +1688,7 @@ function doArienaiEffect(owner) {
  if (songIndex >= 0) {
    const card = temp.splice(songIndex,1)[0];
    owner.hand.push(card);
-   addLog(`「アリエナイ」の効果でソング「${card.name}」を手札に加えた。`);
+   addLog(`CPUの「アリエナイ」の効果でソング「${card.name}」を手札に加えた。`);
  }
  for (let i=temp.length-1;i>=0;i--) {
    owner.deck.unshift(temp[i]);
@@ -1428,7 +1790,6 @@ function onPlayerFieldClick(index) {
  const card = p.field[index];
  if (!card) return;
 
- // 召喚酔い：召喚したターンは行動不可（進化でない普通の出し方）
  if (card.summonTurn === battle.turnCount && battle.turn === "player") {
    showCardDetail(card);
    document.getElementById("actionArea").textContent =
@@ -1623,7 +1984,6 @@ function songCast(charIndex, songIndex, freeCast) {
    }
  }
 
- // 使用したソングは破壊扱い（領域に置かず消える）
  p.hand.splice(songIndex,1);
  addLog(`「${spell.name}」を使用し、破壊された。`);
 
@@ -1752,7 +2112,6 @@ function cpuTurn() {
  }
 
  cpuActionPhase();
-
  startPlayerTurn(false);
 }
 
@@ -1766,8 +2125,6 @@ function cpuActionPhase() {
  for (let i=0; i<c.field.length; i++) {
    const attacker = c.field[i];
    if (attacker.rest || attacker.frozen) continue;
-
-   // 召喚ターンは行動不可
    if (attacker.summonTurn === battle.turnCount) continue;
 
    let targets = p.field.filter(t => t.rest);
