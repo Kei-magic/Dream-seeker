@@ -242,7 +242,7 @@
       background: #145437;
     }
 
-    /* 白カードだけヘッダー＆フッターを白地＋黒文字にして名前とコストを見えるようにする */
+    /* 白カードだけヘッダー＆フッターを白地＋黒文字に */
     .card.white .card-header,
     .card.white .card-footer {
       background: #ffffff;
@@ -406,8 +406,8 @@
   <div class="stone-bar">
     💎 ドリームストーン: <span id="stoneCount">0</span>
   </div>
-  <button class="btn primary" onclick="openCpuConfig()">バトル</button>
-  <button class="btn" onclick="openRoomScreen()">ルーム戦（β）</button>
+  <button class="btn primary" onclick="openCpuConfig()">バトル（CPU戦）</button>
+  <button class="btn" onclick="openRoomScreen()">ルーム戦（β・観戦付き）</button>
   <button class="btn" onclick="showShop()">ショップ</button>
   <button class="btn" onclick="showPack()">パック（ガチャ）</button>
   <button class="btn" onclick="openDeckBuilder()">デッキ編集</button>
@@ -452,7 +452,7 @@
     デッキ3（未保存）
   </button>
 
-  <button class="btn primary" onclick="startBattle()">バトル開始</button>
+  <button class="btn primary" onclick="startBattle()">バトル開始（CPU）</button>
   <button class="btn danger" onclick="showScreen('menu')">← メニューに戻る</button>
 </div>
 
@@ -489,7 +489,7 @@
           <div id="turnInfo" class="turn-info">自分のターン</div>
 
           <div class="status-buttons">
-            <!-- ターン開始時に自動ドローするのでドローボタンは削除 -->
+            <!-- ターン開始時に自動ドローするのでドローボタンは無し -->
             <button class="btn small" onclick="endTurn()">ターン終了</button>
             <button class="btn small danger" onclick="endBattleToMenu()">メニューに戻る</button>
           </div>
@@ -497,7 +497,7 @@
 
         <div class="effect-box">
           <div class="effect-box-title">行動 / 情報</div>
-          <div id="actionArea">キャラをタップすると行動を選べます。</div>
+          <div id="actionArea">キャラをタップすると行動を選べます。（ルーム戦では簡易操作）</div>
         </div>
       </div>
 
@@ -559,12 +559,11 @@
 
 <!-- ===== ルーム戦ロビー ===== -->
 <div id="roomScreen" class="screen">
-  <h2>ルーム戦（β）</h2>
+  <h2>ルーム戦（β・観戦付き）</h2>
   <p style="font-size:12px;opacity:0.8;">
-    Firebaseを使った簡易ルームロビーです。<br>
-    今は「ルームID共有＋準備OK」までの機能で、<br>
-    バトルの盤面同期はこれから拡張していけるようにしてあります。<br>
-    Dream-seeker本体のルールは一切変更していません。
+    Firebaseを使った簡易ルームロビー＋オンライン観戦版です。<br>
+    今はホスト側で対戦して、その盤面をゲストに共有するところまで。<br>
+    ゲスト側からの操作も含めた本格オンライン対戦は、この土台の上に拡張していけるようにしてあります。
   </p>
 
   <div class="section-title">ルーム作成</div>
@@ -591,13 +590,19 @@
     まだどのルームにも入っていません。
   </div>
   <div style="font-size:12px;opacity:0.8;margin-bottom:4px;">
-    ※今は「準備OK」の状態だけを同期します。<br>
-    両方が準備OKになったら、各自バトル画面に進んでください（ルールは今までどおりのCPUバトル/ローカルバトルです）。
+    ※今は「準備OK」と「ホスト側の盤面共有」まで。<br>
+    両方が準備OKになったら、ホストが「ルーム戦開始」ボタンを押してください。
   </div>
 
   <button class="btn small" onclick="setRoomReady(true)">準備OK</button>
   <button class="btn small" onclick="setRoomReady(false)">準備解除</button>
   <button class="btn small danger" onclick="leaveRoom()">ルームから抜ける</button>
+
+  <div style="margin-top:8px;">
+    <button class="btn small primary" onclick="hostStartOnlineBattle()">
+      このルームでルーム戦開始（ホスト用）
+    </button>
+  </div>
 
   <button class="btn danger" style="margin-top:10px;" onclick="showScreen('menu')">← メニューに戻る</button>
 </div>
@@ -619,7 +624,7 @@ const ID_PRETZEL   = 16;
 const ID_CHAMELEON = 24;
 const ID_ERRATA_PRINCE = 31;
 
-/* Eレア（エンチャンテッド）のレート（1カートン＝288パック、1パック5枚→1440枚に1枚くらい） */
+/* Eレア（エンチャンテッド）のレート */
 const ENCHANTED_RATE = 1 / (288 * 5);
 
 /* ========== 画面切り替え ========== */
@@ -683,7 +688,7 @@ const cards = [
 
   /* ===== ここから新カード ===== */
 
-  // 赤（新）
+  // 緑（新）
   {id:20, name:"ジーユー",     color:"green",    type:"character", cost:6, atk:3, hp:4, lore:2, rarity:"SR", inkable:false, effect:"bounceOnSummon"},
   {id:21, name:"エンハンス",   color:"green",    type:"character", cost:4, atk:3, hp:3, lore:3, rarity:"N",  inkable:true},
   {id:22, name:"背筋がヒヤリ", color:"green",    type:"song",      cost:2, atk:0, hp:0, lore:0, rarity:"N",  inkable:true,  effect:"discard1"},
@@ -775,6 +780,14 @@ let currentRoomRole = null;  // "host" or "guest"
 let roomRef = null;
 let roomListener = null;
 
+/* ルーム戦用 共通状態（簡易オンライン観戦） */
+let battleMode = "cpu";            // "cpu" or "online"
+let onlineBattle = null;           // ルーム戦用バトル状態
+let myOnlineSide = null;           // "A" or "B"（ホスト=A, ゲスト=B）
+let onlineBattleStarted = false;
+let onlineBattleListener = null;
+let commandListener = null;
+
 function initFirebase() {
   try {
     if (!firebase.apps || firebase.apps.length === 0) {
@@ -792,7 +805,6 @@ function openRoomScreen() {
 }
 
 function randomRoomId() {
-  // 4桁の数字
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
@@ -806,7 +818,8 @@ function createRoom() {
   ref.set({
     createdAt: Date.now(),
     hostReady: false,
-    guestReady: false
+    guestReady: false,
+    battleStarted: false
   }).then(() => {
     attachRoomListener(roomId);
     currentRoomId = roomId;
@@ -854,7 +867,6 @@ function joinRoom() {
 
 function attachRoomListener(roomId) {
   if (!firebaseDb) return;
-  // 既存リスナー解除
   if (roomRef && roomListener) {
     roomRef.off("value", roomListener);
   }
@@ -872,11 +884,33 @@ function attachRoomListener(roomId) {
     html += "ホスト準備: " + (val.hostReady ? "OK" : "未") + "<br>";
     html += "ゲスト準備: " + (val.guestReady ? "OK" : "未") + "<br>";
     if (val.hostReady && val.guestReady) {
-      html += "<br>両者準備OK！<br>それぞれ自分の画面でバトルを開始してください。";
+      html += "<br>両者準備OK！<br>ホストが「ルーム戦開始」ボタンを押してください。";
     } else {
       html += "<br>※両方が準備OKになると開始可能です。";
     }
+    if (val.battleStarted) {
+      html += "<br><br>対戦中：バトル画面を開いてください。";
+    }
     infoEl.innerHTML = html;
+
+    if (val.battleStarted && !onlineBattleStarted) {
+      onlineBattleStarted = true;
+      // ゲスト側：hostが開始した onlineBattle を受け取って観戦開始
+      if (currentRoomRole === "guest" && val.onlineBattle) {
+        battleMode = "online";
+        myOnlineSide = "B";
+        onlineBattle = val.onlineBattle;
+        attachOnlineBattleListener();
+        showScreen("battle");
+        const logEl = document.getElementById("log");
+        if (logEl) logEl.innerHTML = "";
+        addLog("ルーム戦を開始しました。（ゲスト側 / 観戦）");
+        updateBattleUI();
+      }
+    }
+    if (!val.battleStarted && onlineBattleStarted) {
+      onlineBattleStarted = false;
+    }
   });
 }
 
@@ -909,7 +943,13 @@ function leaveRoom() {
   if (roomRef && roomListener) {
     roomRef.off("value", roomListener);
   }
-  // ホストが抜けるならルーム削除
+  if (roomRef && onlineBattleListener) {
+    roomRef.child("onlineBattle").off("value", onlineBattleListener);
+  }
+  if (roomRef && commandListener) {
+    roomRef.child("commands").off("child_added", commandListener);
+  }
+  // ホストが抜けるならルーム削除（簡易）
   if (roomRef && currentRoomRole === "host") {
     roomRef.remove().catch(e => console.error(e));
   }
@@ -917,6 +957,11 @@ function leaveRoom() {
   currentRoomRole = null;
   roomRef = null;
   roomListener = null;
+  onlineBattleListener = null;
+  commandListener = null;
+  onlineBattle = null;
+  onlineBattleStarted = false;
+  battleMode = "cpu";
 
   const disp = document.getElementById("roomIdDisplay");
   if (disp) disp.textContent = "-";
@@ -924,658 +969,654 @@ function leaveRoom() {
   if (infoEl) infoEl.textContent = "まだどのルームにも入っていません。";
 }
 
-/* ========== ショップ ========== */
-function showShop() {
-  updateStoneDisplays();
-  showScreen("shop");
-}
-function debugAddStones() {
-  stones += 100;
-  saveStones();
-}
+/* ===== ルーム戦（簡易オンライン観戦） ===== */
 
-/* ========== ガチャ ========== */
-function showPack() {
-  updateStoneDisplays();
-  document.getElementById("packResult").innerHTML = "";
-  showScreen("pack");
-}
-
-/* バトルと同じカードデザインを使って表示するための共通描画 */
-function renderSingleCardDivFromBaseCard(baseCard, isEnchanted = false) {
-  const cardInst = makeCardInstance(baseCard, isEnchanted);
-  const wrap = document.createElement("div");
-  wrap.style.display = "inline-block";
-  wrap.style.margin = "4px";
-  wrap.innerHTML = renderCardHtml(cardInst);
-  const cardEl = wrap.firstElementChild;
-  cardEl.onclick = () => showCardDetail(cardInst);
-  return wrap;
-}
-
-function openPack() {
-  const COST = 5;
-  if (stones < COST) {
-    alert("ドリームストーンが足りません（5個必要）");
+/* ホストが「ルーム戦開始」を押したとき */
+function hostStartOnlineBattle() {
+  if (!roomRef || currentRoomRole !== "host") {
+    alert("ホストのみがルーム戦を開始できます。");
     return;
   }
-  stones -= COST;
-  saveStones();
-
-  const pulled = [];
-
-  for (let i=0;i<5;i++) {
-    let isEnchanted = false;
-    let baseCard = null;
-
-    // まずEレア抽選
-    if (Math.random() < ENCHANTED_RATE) {
-      const lCandidates = cards.filter(c => c.rarity === "L");
-      if (lCandidates.length > 0) {
-        baseCard = lCandidates[Math.floor(Math.random()*lCandidates.length)];
-        isEnchanted = true;
-      }
-    }
-
-    // Eが出なかった場合は通常レアリティ抽選
-    if (!baseCard) {
-      const r = Math.random();
-      let rarity;
-      if (r < 0.78) rarity = "N";
-      else if (r < 0.90) rarity = "R";
-      else if (r < 0.98) rarity = "SR";
-      else rarity = "L";
-
-      let candidates = cards.filter(c => c.rarity === rarity);
-      if (candidates.length === 0) {
-        const order = ["L","SR","R","N"];
-        for (const rr of order) {
-          const list = cards.filter(c => c.rarity === rr);
-          if (list.length) { candidates = list; break; }
-        }
-        if (!candidates.length) candidates = cards.slice();
-      }
-      baseCard = candidates[Math.floor(Math.random()*candidates.length)];
-    }
-
-    pulled.push({ card: baseCard, isEnchanted });
-
-    // 通常版
-    if (!collection[baseCard.id]) collection[baseCard.id] = 0;
-    collection[baseCard.id]++;
-
-    // E版
-    if (isEnchanted) {
-      if (!enchantedCollection[baseCard.id]) enchantedCollection[baseCard.id] = 0;
-      enchantedCollection[baseCard.id]++;
-    }
-  }
-  saveCollection();
-  saveEnchantedCollection();
-
-  const pr = document.getElementById("packResult");
-  pr.innerHTML = "";
-  pulled.forEach(obj => {
-    const c = obj.card;
-    const cardDiv = renderSingleCardDivFromBaseCard(c, obj.isEnchanted);
-    pr.appendChild(cardDiv);
-  });
-}
-
-/* ========== カード詳細ポップアップ ========== */
-function getCardEffectText(card) {
-  switch(card.id) {
-    case 6:
-      return "ソング（7）：場のすべてのキャラを破壊する。キャラが歌う場合、コストを支払わずに使用できる。使用後、このカードは破壊される。";
-    case 7:
-      return "変身6：自分の「ケルサ」から変身できる。\n召喚時：相手のキャラを最大2体まで凍結する。凍結中のキャラは行動できない。";
-    case 8:
-      return "回避：回避を持つキャラにしかチャレンジされない。";
-    case 9:
-      return "ロア0（シークしてもロアは得られない）。\n突進：このターン召喚したターンでもチャレンジできる。\nこのキャラは攻撃可能で有効なチャレンジ先がいる場合、必ずチャレンジしなければならない。";
-    case 10:
-      return "召喚時：相手の場の好きなキャラ1体を退場させる。";
-    case 11:
-      return "特になし。";
-    case 12:
-      return "召喚時：相手の場の好きなキャラ1体をコストゾーンに送る。";
-    case 13:
-      return "①このキャラが場にいる間、自分は1ターンに置けるインクが1枚増える。\n②自分のコストが10枚以上ある間、このキャラのロアは5になる。";
-    case 14:
-      return "ロア1。\nこのカードが破壊されたとき、墓地に行かずコストゾーンに置かれる。";
-    case 15:
-      return "ソング（5）：相手の場の好きなキャラ1体をコストゾーンに送る。使用後、このカードは破壊される。";
-    case 16:
-      return "召喚時：自分の場のキャラから合計3ダメージまで好きなように回復し、その回復したダメージの数だけ追加でドローする。";
-    case 19:
-      return "歌声5：このキャラはソングを歌うとき、コスト5のソングを歌えるキャラとして扱う。\n召喚時：自分のデッキの上から4枚見て、その中からソングカードを1枚まで手札に加える。残りは好きな順番でデッキの下に置く。";
-
-    case 20:
-      return "召喚時：相手の場のキャラクター1体を選び、そのキャラを相手の手札に戻してもよい。";
-    case 22:
-      return "ソング（2）：相手は自分の手札から1枚を選び、捨てる。";
-    case 24:
-      return "自分の場に他のキャラクターがいるあいだ、このキャラは「回避」を得る。";
-    case 25:
-      return "ソング（3）：カードを3枚ドローする。";
-    case 26:
-      return "召喚時：カードを1枚ドローする。";
-    case 28:
-      return "ソング（5）：お互いのプレイヤーは手札をすべて捨て、7枚ドローする。";
-    case 29:
-      return "マジック（3）：相手のキャラクター1体を選び、そのキャラに3ダメージを与える。";
-    case 30:
-      return "ソング（5）：相手の各キャラクターに2ダメージを与える。";
-    case 31:
-      return "獰猛2：このキャラクターがチャレンジするとき、攻撃力が＋2される。";
-    default:
-      return "特になし。";
-  }
-}
-
-function showCardDetail(card) {
-  const overlay = document.getElementById("cardDetailOverlay");
-  const content = document.getElementById("cardDetailContent");
-  if (!overlay || !content) return;
-
-  const effectText = getCardEffectText(card);
-  const rarityDisp = card.isEnchanted ? "E（エンチャンテッド）" : card.rarity;
-
-  const statsPart = (card.type === "character")
-    ? `<div style="margin-bottom:4px;">ATK:${card.atk} / HP:${card.hp}/${card.maxHp} / ロア:${card.lore}</div>`
-    : `<div style="margin-bottom:4px;">ソングカード</div>`;
-
-  content.innerHTML = `
-    <div style="font-weight:bold; margin-bottom:4px;">${card.name}</div>
-    <div style="font-size:12px; margin-bottom:4px;">
-      色:${card.color} ／ 種類:${card.type} ／ コスト:${card.cost} ／ レア:${rarityDisp}
-    </div>
-    ${statsPart}
-    <div style="font-size:12px; white-space:pre-wrap;">${effectText}</div>
-  `;
-  overlay.style.display = "block";
-}
-
-function showCardDetailById(id) {
-  const base = cards.find(c => c.id === id);
-  if (!base) return;
-  const inst = makeCardInstance(base, false);
-  showCardDetail(inst);
-}
-
-/* アリエナイ／プレッツェルのポップアップでも overlay を使うので
-   「戻る」が押された場合は、効果をキャンセルする挙動にしておく */
-function closeCardDetail() {
-  const overlay = document.getElementById("cardDetailOverlay");
-  if (overlay) overlay.style.display = "none";
-
-  if (typeof arienaiState !== "undefined" && arienaiState) {
-    addLog("「アリエナイ」の効果をキャンセルした。");
-    arienaiState = null;
-  }
-  if (typeof pretzelState !== "undefined" && pretzelState) {
-    addLog("「プレッツェル」の効果をキャンセルした。");
-    pretzelState = null;
-  }
-}
-
-/* ========== コレクション ========== */
-function openCollection() {
-  const list = document.getElementById("collectionList");
-  list.innerHTML = "";
-
-  cards.forEach(c => {
-    const cnt = collection[c.id] || 0;
-    const eCnt = enchantedCollection[c.id] || 0;
-
-    const row = document.createElement("div");
-    row.style.display = "flex";
-    row.style.alignItems = "center";
-    row.style.gap = "8px";
-    row.style.marginBottom = "4px";
-
-    const cardDiv = renderSingleCardDivFromBaseCard(c, false);
-    row.appendChild(cardDiv);
-
-    const info = document.createElement("div");
-    info.style.fontSize = "12px";
-    info.innerHTML = `
-      <div>${c.name}</div>
-      <div>色:${c.color} / レア:${c.rarity}</div>
-      <div>所持枚数: 通常×${cnt} ${eCnt > 0 ? "／ E:×" + eCnt : ""}</div>
-    `;
-    row.appendChild(info);
-
-    list.appendChild(row);
-  });
-
-  showScreen("collection");
-}
-
-/* ========== デッキ編集 ========== */
-let deckCountsNormal = {};
-let deckCountsEnchanted = {};
-
-function openDeckBuilder(index) {
-  if (typeof index === "number") {
-    currentDeckIndex = index;
-  }
-  rebuildDeckEditor();
-  showScreen("deck");
-}
-
-function switchDeck(idx) {
-  currentDeckIndex = idx;
-  rebuildDeckEditor();
-}
-
-function rebuildDeckEditor() {
-  deckCountsNormal = {};
-  deckCountsEnchanted = {};
-
-  const currentDeck = savedDecks[currentDeckIndex] || [];
-
-  currentDeck.forEach(entry => {
-    if (typeof entry === "number") {
-      deckCountsNormal[entry] = (deckCountsNormal[entry] || 0) + 1;
+  roomRef.get().then(snap => {
+    const val = snap.val();
+    if (!val || !val.hostReady || !val.guestReady) {
+      alert("両プレイヤーが準備OKになってから開始してください。");
       return;
     }
-    if (entry && typeof entry === "object") {
-      const id = entry.id;
-      if (!entry.hasOwnProperty("isEnchanted") || !entry.isEnchanted) {
-        deckCountsNormal[id] = (deckCountsNormal[id] || 0) + 1;
-      } else {
-        deckCountsEnchanted[id] = (deckCountsEnchanted[id] || 0) + 1;
-      }
-    }
-  });
 
-  const label = document.getElementById("currentDeckLabel");
-  if (label) label.textContent = currentDeckIndex + 1;
-
-  const area = document.getElementById("deckCardList");
-  let html = "";
-  cards.forEach(c => {
-    const haveNormal = collection[c.id] || 0;
-    const haveE      = enchantedCollection[c.id] || 0;
-    const inDeckN = deckCountsNormal[c.id] || 0;
-    const inDeckE = deckCountsEnchanted[c.id] || 0;
-
-    html += `
-      <div class="card-box ${c.color}" onclick="showCardDetailById(${c.id})">
-        <div class="card-name">${c.name}</div>
-        <div class="card-stats">
-          色:${c.color} / レア:${c.rarity} / 種類:${c.type} / コスト:${c.cost}
-        </div>
-        <div class="card-stats">
-          所持: 通常×${haveNormal} ／ E×${haveE}
-        </div>
-        <div class="card-stats">
-          デッキ: 通常×<span id="deck-n-${c.id}">${inDeckN}</span>
-           ／ E×<span id="deck-e-${c.id}">${inDeckE}</span>
-        </div>
-        <button class="btn small"
-          onclick="event.stopPropagation(); changeDeckCount(${c.id}, -1, false)">－通常</button>
-        <button class="btn small"
-          onclick="event.stopPropagation(); changeDeckCount(${c.id}, +1, false)">＋通常</button>
-        <button class="btn small"
-          onclick="event.stopPropagation(); changeDeckCount(${c.id}, -1, true)">－E</button>
-        <button class="btn small"
-          onclick="event.stopPropagation(); changeDeckCount(${c.id}, +1, true)">＋E</button>
-      </div>`;
-  });
-  area.innerHTML = html;
-}
-
-function isBasicCard(cardId) {
-  return cardId >= 0 && cardId <= 5;
-}
-
-function getDeckColorsFromTwoCounts() {
-  const colors = new Set();
-  function addFrom(counts) {
-    Object.entries(counts).forEach(([idStr, cnt]) => {
-      if (cnt > 0) {
-        const base = cards.find(c => c.id === parseInt(idStr,10));
-        if (base) colors.add(base.color);
-      }
+    // とりあえずデフォルト赤デッキを両者共通で使う
+    const ids = makeDefaultDeck();
+    const baseDeck = ids.map(id => {
+      const base = cards.find(c => c.id === id);
+      return makeCardInstance(base, false);
     });
-  }
-  addFrom(deckCountsNormal);
-  addFrom(deckCountsEnchanted);
-  return colors;
+
+    const deckA = JSON.parse(JSON.stringify(baseDeck));
+    const deckB = JSON.parse(JSON.stringify(baseDeck));
+    shuffle(deckA);
+    shuffle(deckB);
+
+    onlineBattle = {
+      turnCount: 1,
+      currentPlayer: "A",
+      A: { deck: deckA, hand: [], field: [], inkCurrent: 0, inkMax: 0, lore: 0 },
+      B: { deck: deckB, hand: [], field: [], inkCurrent: 0, inkMax: 0, lore: 0 }
+    };
+
+    // 初期手札5枚ずつ
+    for (let i = 0; i < 5; i++) {
+      if (onlineBattle.A.deck.length) {
+        const c = onlineBattle.A.deck.shift();
+        onlineBattle.A.hand.push(c);
+      }
+      if (onlineBattle.B.deck.length) {
+        const c2 = onlineBattle.B.deck.shift();
+        onlineBattle.B.hand.push(c2);
+      }
+    }
+
+    battleMode = "online";
+    myOnlineSide = "A";
+    onlineBattleStarted = true;
+
+    // Firebaseに書き込み＆リスナーセット
+    roomRef.update({
+      battleStarted: true,
+      onlineBattle: onlineBattle
+    }).then(() => {
+      attachOnlineBattleListener();
+      attachCommandListenerForHost();
+      showScreen("battle");
+      const logEl = document.getElementById("log");
+      if (logEl) logEl.innerHTML = "";
+      addLog("ルーム戦を開始しました。（ホスト側）");
+      // ターン開始処理
+      onlineStartTurn("A", true);
+    }).catch(err => {
+      console.error(err);
+      alert("ルーム戦の開始に失敗しました。");
+    });
+  });
 }
 
-function changeDeckCount(cardId, diff, isEnchanted) {
-  const card = cards.find(c => c.id === cardId);
-  if (!card) return;
-
-  const basic = isBasicCard(cardId);
-  const counts = isEnchanted ? deckCountsEnchanted : deckCountsNormal;
-  let cur = counts[cardId] || 0;
-  const before = cur;
-  cur += diff;
-  if (cur < 0) cur = 0;
-
-  const haveLimit = isEnchanted
-    ? (enchantedCollection[cardId] || 0)
-    : (collection[cardId] || 0);
-
-  if (cur > haveLimit) {
-    alert("所持している枚数を超えてデッキに入れることはできません。");
-    cur = haveLimit;
+/* Firebase上の onlineBattle を監視 */
+function attachOnlineBattleListener() {
+  if (!roomRef) return;
+  if (onlineBattleListener) {
+    roomRef.child("onlineBattle").off("value", onlineBattleListener);
   }
-  counts[cardId] = cur;
-
-  // 色チェック（2色まで）
-  const colors = getDeckColorsFromTwoCounts();
-  if (colors.size > 2) {
-    counts[cardId] = before;
-    alert("デッキは2色までです。3色目のカードは入れられません。");
-    cur = before;
-  }
-
-  // 同名4枚制限（基本6種以外）。通常＋Eの合計で4枚まで
-  const totalSame =
-    (deckCountsNormal[cardId] || 0) + (deckCountsEnchanted[cardId] || 0);
-  if (!basic && totalSame > 4) {
-    counts[cardId] = before;
-    if (diff > 0) {
-      alert("同じ名前のカードは4枚までです。（通常とEの合計）");
-    }
-  }
-
-  const spanN = document.getElementById("deck-n-" + cardId);
-  const spanE = document.getElementById("deck-e-" + cardId);
-  if (spanN) spanN.textContent = deckCountsNormal[cardId] || 0;
-  if (spanE) spanE.textContent = deckCountsEnchanted[cardId] || 0;
+  onlineBattleListener = roomRef.child("onlineBattle").on("value", snap => {
+    const data = snap.val();
+    if (!data) return;
+    onlineBattle = data;
+    updateBattleUI();
+  });
 }
 
-function saveDeck() {
-  const newDeck = [];
-
-  Object.entries(deckCountsNormal).forEach(([idStr, cnt]) => {
-    const id = parseInt(idStr, 10);
-    for (let i = 0; i < cnt; i++) {
-      newDeck.push({ id, isEnchanted: false });
-    }
+/* ゲスト→ホストへの操作コマンド */
+function sendRoomCommand(cmd) {
+  if (!roomRef || !currentRoomRole) return;
+  roomRef.child("commands").push({
+    ...cmd,
+    from: currentRoomRole,
+    createdAt: Date.now()
   });
+}
 
-  Object.entries(deckCountsEnchanted).forEach(([idStr, cnt]) => {
-    const id = parseInt(idStr, 10);
-    for (let i = 0; i < cnt; i++) {
-      newDeck.push({ id, isEnchanted: true });
-    }
+/* ホスト側：ゲストからのコマンドを受信 */
+function attachCommandListenerForHost() {
+  if (!roomRef) return;
+  if (commandListener) {
+    roomRef.child("commands").off("child_added", commandListener);
+  }
+  commandListener = roomRef.child("commands").on("child_added", snap => {
+    const cmd = snap.val();
+    const key = snap.key;
+    if (!cmd || cmd.from !== "guest") return;
+    handleOnlineGuestCommand(cmd);
+    // 処理したコマンドは削除
+    roomRef.child("commands/" + key).remove();
   });
+}
 
-  if (newDeck.length < 60) {
-    alert("デッキは60枚以上にしてください。（現在 " + newDeck.length + "枚）");
+/* ゲストからのコマンドをホスト側で処理（オンライン簡易版） */
+function handleOnlineGuestCommand(cmd) {
+  if (!onlineBattle) return;
+  // ゲストは常にB側
+  const side = "B";
+  if (cmd.type === "playCharacter") {
+    onlinePlayCharacter(side, cmd.handIndex);
+  } else if (cmd.type === "seek") {
+    onlineSeek(side, cmd.fieldIndex);
+  } else if (cmd.type === "challenge") {
+    onlineChallenge(side, cmd.fieldIndex);
+  } else if (cmd.type === "endTurn") {
+    onlineEndTurn(side);
+  }
+}
+
+/* ===== オンライン対戦用 簡易エンジン ===== */
+
+function isMyTurnOnline() {
+  if (!onlineBattle || !myOnlineSide) return false;
+  return onlineBattle.currentPlayer === myOnlineSide;
+}
+
+function syncOnlineBattleToFirebase() {
+  if (!onlineBattle) return;
+  if (battleMode === "online" && roomRef && currentRoomRole === "host") {
+    roomRef.child("onlineBattle").set(onlineBattle);
+  }
+}
+
+function onlineStartTurn(sideKey, isFirst) {
+  if (!onlineBattle) return;
+  if (!isFirst) {
+    onlineBattle.turnCount++;
+  }
+  onlineBattle.currentPlayer = sideKey;
+  const s = onlineBattle[sideKey];
+  s.inkMax = Math.min(s.inkMax + 1, 10);
+  s.inkCurrent = s.inkMax;
+  s.field.forEach(c => {
+    c.rest = false;
+    c.frozen = false;
+  });
+  if (s.deck.length > 0) {
+    const c = s.deck.shift();
+    s.hand.push(c);
+  }
+  const who = (sideKey === myOnlineSide) ? "自分" : "相手";
+  addLog(`=== ${who}のターン ${onlineBattle.turnCount} ===`);
+  syncOnlineBattleToFirebase();
+  updateBattleUI();
+}
+
+function onlinePlayCharacter(sideKey, handIndex) {
+  if (!onlineBattle) return;
+  if (onlineBattle.currentPlayer !== sideKey) return;
+  const s = onlineBattle[sideKey];
+  const card = s.hand[handIndex];
+  if (!card || card.type !== "character") return;
+  if (s.inkCurrent < card.cost) return;
+  s.inkCurrent -= card.cost;
+  s.hand.splice(handIndex, 1);
+  card.rest = false;
+  card.frozen = false;
+  card.summonTurn = onlineBattle.turnCount;
+  s.field.push(card);
+  const who = (sideKey === myOnlineSide) ? "自分" : "相手";
+  addLog(`${who}は「${card.name}」を召喚した。`);
+  syncOnlineBattleToFirebase();
+  updateBattleUI();
+}
+
+function onlineSeek(sideKey, fieldIndex) {
+  if (!onlineBattle) return;
+  if (onlineBattle.currentPlayer !== sideKey) return;
+  const
+
+function onlineSeek(sideKey, fieldIndex) {
+  if (!onlineBattle) return;
+  if (onlineBattle.currentPlayer !== sideKey) return;
+
+  const s = onlineBattle[sideKey];
+  const card = s.field[fieldIndex];
+  if (!card || card.type !== "character") return;
+
+  // 召喚ターンはシーク不可
+  if (card.summonTurn === onlineBattle.turnCount) return;
+  if (card.rest || card.frozen) return;
+
+  card.rest = true;
+  const gain = card.lore || 0;
+  s.lore = (s.lore || 0) + gain;
+
+  const who = (sideKey === myOnlineSide) ? "自分" : "相手";
+  addLog(`${who}は「${card.name}」でシークして、ロアを${gain}得た。（合計 ${s.lore}）`);
+
+  checkOnlineWin();
+  syncOnlineBattleToFirebase();
+  updateBattleUI();
+}
+
+function onlineChallenge(sideKey, fieldIndex) {
+  if (!onlineBattle) return;
+  if (onlineBattle.currentPlayer !== sideKey) return;
+
+  const atkSide = onlineBattle[sideKey];
+  const defSideKey = (sideKey === "A") ? "B" : "A";
+  const defSide = onlineBattle[defSideKey];
+
+  const attacker = atkSide.field[fieldIndex];
+  if (!attacker || attacker.type !== "character") return;
+
+  // 召喚ターンはチャレンジ不可
+  if (attacker.summonTurn === onlineBattle.turnCount) return;
+  if (attacker.rest || attacker.frozen) return;
+
+  if (!defSide.field.length) {
+    addLog("相手フィールドにキャラがいないため、チャレンジできません。");
     return;
   }
 
-  savedDecks[currentDeckIndex] = newDeck;
-  savePlayerDecks();
-  alert("デッキ" + (currentDeckIndex+1) + "を保存しました！（" + newDeck.length + "枚）");
-  updatePlayerDeckButtons();
-}
-
-/* ========== CPU設定 ========== */
-let cpuStrength = "normal";
-let cpuSelectedColors = [];
-let playerDeckMode = "default";
-
-function openCpuConfig() {
-  updateCpuButtons();
-  updatePlayerDeckButtons();
-  showScreen("cpu");
-}
-
-function setCpuStrength(s) {
-  cpuStrength = s;
-  updateCpuButtons();
-}
-function setCpuColor(color) {
-  const idx = cpuSelectedColors.indexOf(color);
-  if (idx >= 0) {
-    cpuSelectedColors.splice(idx, 1);
-  } else {
-    if (cpuSelectedColors.length >= 2) {
-      alert("CPUデッキは2色までです。");
-      return;
-    }
-    cpuSelectedColors.push(color);
-  }
-  updateCpuButtons();
-}
-function updateCpuButtons() {
-  document.getElementById("btnCpuNormal").classList.toggle("toggle-selected", cpuStrength==="normal");
-  document.getElementById("btnCpuStrong").classList.toggle("toggle-selected", cpuStrength==="strong");
-  const colors = ["red","purple","blue","yellow","white","green"];
-  colors.forEach(c => {
-    const btnId = "cpu" + c.charAt(0).toUpperCase() + c.slice(1);
-    const btn = document.getElementById(btnId);
-    if (!btn) return;
-    btn.classList.toggle("toggle-selected", cpuSelectedColors.includes(c));
-  });
-}
-
-function hasCustomDeck(index) {
-  const deck = savedDecks[index];
-  return Array.isArray(deck) && deck.length > 0;
-}
-
-function updatePlayerDeckButtons() {
-  const btnDef = document.getElementById("btnPlayerDefault");
-  const btn1 = document.getElementById("btnDeck1");
-  const btn2 = document.getElementById("btnDeck2");
-  const btn3 = document.getElementById("btnDeck3");
-
-  if (!btnDef) return;
-
-  btnDef.classList.toggle("toggle-selected", playerDeckMode==="default");
-  btn1.classList.toggle("toggle-selected", playerDeckMode==="deck1");
-  btn2.classList.toggle("toggle-selected", playerDeckMode==="deck2");
-  btn3.classList.toggle("toggle-selected", playerDeckMode==="deck3");
-
-  const btns = [btn1, btn2, btn3];
-  for (let i=0;i<3;i++) {
-    if (!hasCustomDeck(i)) {
-      btns[i].disabled = true;
-      btns[i].textContent = "デッキ" + (i+1) + "（未保存）";
-    } else {
-      btns[i].disabled = false;
-      btns[i].textContent = "デッキ" + (i+1);
+  // 簡易：相手フィールドの中でHPが一番低いキャラを自動で殴る
+  let targetIndex = 0;
+  let minHp = defSide.field[0].hp;
+  for (let i = 1; i < defSide.field.length; i++) {
+    if (defSide.field[i].hp < minHp) {
+      minHp = defSide.field[i].hp;
+      targetIndex = i;
     }
   }
+  const defender = defSide.field[targetIndex];
+
+  attacker.rest = true;
+
+  addLog(`「${attacker.name}」が「${defender.name}」にチャレンジ！`);
+
+  // 同時ダメージ
+  defender.hp -= attacker.atk;
+  attacker.hp -= defender.atk;
+
+  if (defender.hp <= 0) {
+    addLog(`相手の「${defender.name}」は退場した。`);
+    defSide.field.splice(targetIndex, 1);
+  }
+  if (attacker.hp <= 0) {
+    addLog(`自分の「${attacker.name}」は退場した。`);
+    atkSide.field.splice(fieldIndex, 1);
+  }
+
+  syncOnlineBattleToFirebase();
+  updateBattleUI();
 }
 
-function selectPlayerDeck(mode) {
-  if (mode.startsWith("deck")) {
-    const idx = parseInt(mode.slice(4), 10) - 1;
-    if (!hasCustomDeck(idx)) {
-      alert("まずデッキ編集でデッキ" + (idx+1) + "を保存してください。");
-      return;
-    }
+function onlineEndTurn(sideKey) {
+  if (!onlineBattle) return;
+  if (onlineBattle.currentPlayer !== sideKey) return;
+  const next = (sideKey === "A") ? "B" : "A";
+  onlineStartTurn(next, false);
+}
+
+function checkOnlineWin() {
+  if (!onlineBattle) return;
+  const LORE_WIN = 20;
+
+  if ((onlineBattle.A.lore || 0) >= LORE_WIN &&
+      (onlineBattle.B.lore || 0) >= LORE_WIN) {
+    addLog("両者ロア20以上！引き分けです。");
+    return;
   }
-  playerDeckMode = mode;
-  updatePlayerDeckButtons();
+  if ((onlineBattle.A.lore || 0) >= LORE_WIN) {
+    addLog("A側の勝利！（ロア20到達）");
+  }
+  if ((onlineBattle.B.lore || 0) >= LORE_WIN) {
+    addLog("B側の勝利！（ロア20到達）");
+  }
 }
 
 /* ========== 共通ユーティリティ ========== */
+
 function shuffle(arr) {
-  for (let i=arr.length-1;i>0;i--) {
-    const j = Math.floor(Math.random()*(i+1));
-    [arr[i],arr[j]] = [arr[j],arr[i]];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
 }
 
-/* ========== カードインスタンス生成 ========== */
-function makeCardInstance(base, isEnchanted = false) {
+function makeCardInstance(base, isEnchanted) {
   return {
     id: base.id,
     name: base.name,
     color: base.color,
     type: base.type,
     cost: base.cost,
-    atk: base.atk || 0,
-    hp: base.hp || 0,
-    maxHp: base.hp || 0,
-    lore: base.lore || 0,
+    atk: base.atk,
+    hp: base.hp,
+    lore: base.lore,
     rarity: base.rarity,
-    inkable: base.inkable ?? true,
+    inkable: base.inkable,
     effect: base.effect || null,
+    songPower: base.songPower || 0,
+    mustAttack: !!base.mustAttack,
+    rush: !!base.rush,
+    evade: !!base.evade,
     evolveCost: base.evolveCost || null,
-    evade: base.evade || false,
-    mustAttack: base.mustAttack || false,
-    songPower: base.songPower || base.cost || 0,
-    rush: base.rush || false,          // ★ タイタン用：突進
-    isEnchanted: !!isEnchanted,        // ★ E版かどうか
+    enchanted: !!isEnchanted,
     rest: false,
     frozen: false,
     summonTurn: 0
   };
 }
 
-/* savedDecks からバトル用デッキを作る（通常/Eを引き継ぐ） */
-function buildDeckInstancesFromSaved(saved) {
-  const result = [];
-  (saved || []).forEach(entry => {
-    if (typeof entry === "number") {
-      const base = cards.find(c => c.id === entry);
-      if (base) result.push(makeCardInstance(base, false));
-    } else if (entry && typeof entry === "object") {
-      const base = cards.find(c => c.id === entry.id);
-      if (base) result.push(makeCardInstance(base, !!entry.isEnchanted));
+/* ========== ログ & カード描画 ========== */
+
+function addLog(text) {
+  const logEl = document.getElementById("log");
+  if (!logEl) return;
+  const line = document.createElement("div");
+  line.textContent = text;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+/* バトル画面の描画（CPU / オンライン共通） */
+function updateBattleUI() {
+  const cpuFieldEl    = document.getElementById("cpuField");
+  const playerFieldEl = document.getElementById("playerField");
+  const playerHandEl  = document.getElementById("playerHand");
+
+  const cpuHandCountEl = document.getElementById("cpuHandCount");
+  const cLoreEl        = document.getElementById("cLore");
+  const cDeckEl        = document.getElementById("cDeck");
+
+  const playerLoreEl   = document.getElementById("playerLore");
+  const playerInkCurEl = document.getElementById("playerInkCurrent");
+  const playerInkMaxEl = document.getElementById("playerInkMax");
+  const playerDeckEl   = document.getElementById("playerDeck");
+  const turnInfoEl     = document.getElementById("turnInfo");
+
+  if (!cpuFieldEl || !playerFieldEl || !playerHandEl) return;
+
+  cpuFieldEl.innerHTML = "";
+  playerFieldEl.innerHTML = "";
+  playerHandEl.innerHTML = "";
+
+  if (battleMode === "online" && onlineBattle) {
+    const meSide    = myOnlineSide;
+    const oppSide   = (meSide === "A") ? "B" : "A";
+    const me        = onlineBattle[meSide];
+    const opp       = onlineBattle[oppSide];
+
+    // 上段：相手フィールド
+    opp.field.forEach((card, idx) => {
+      const el = createBattleCardElement(card, false, () => {
+        // 相手カードはクリックだけで詳細表示
+        showCardDetail(card);
+      });
+      cpuFieldEl.appendChild(el);
+    });
+
+    // 下段：自分フィールド
+    me.field.forEach((card, idx) => {
+      const el = createBattleCardElement(card, false, () => {
+        if (!isMyTurnOnline()) {
+          showCardDetail(card);
+          return;
+        }
+        openOnlineActionPopup("field", idx);
+      });
+      playerFieldEl.appendChild(el);
+    });
+
+    // 自分手札
+    me.hand.forEach((card, idx) => {
+      const el = createBattleCardElement(card, true, () => {
+        if (!isMyTurnOnline()) {
+          showCardDetail(card);
+          return;
+        }
+        if (card.type === "character") {
+          onlinePlayCharacter(meSide, idx);
+        } else {
+          // 今はキャラ以外は詳細表示のみ（簡易版）
+          showCardDetail(card);
+        }
+      });
+      playerHandEl.appendChild(el);
+    });
+
+    if (cpuHandCountEl) cpuHandCountEl.textContent = opp.hand.length;
+    if (cLoreEl)        cLoreEl.textContent        = opp.lore || 0;
+    if (cDeckEl)        cDeckEl.textContent        = opp.deck.length;
+
+    if (playerLoreEl)   playerLoreEl.textContent   = me.lore || 0;
+    if (playerInkCurEl) playerInkCurEl.textContent = me.inkCurrent || 0;
+    if (playerInkMaxEl) playerInkMaxEl.textContent = me.inkMax || 0;
+    if (playerDeckEl)   playerDeckEl.textContent   = me.deck.length;
+
+    if (turnInfoEl) {
+      if (isMyTurnOnline()) {
+        turnInfoEl.textContent = "自分のターン（オンライン）";
+      } else {
+        turnInfoEl.textContent = "相手のターン（オンライン）";
+      }
     }
-  });
-  shuffle(result);
-  return result;
-}
-
-/* デフォルト赤デッキ（とりあえず60枚になるようにしておく） */
-function makeDefaultDeck() {
-  const ids = [];
-  // 基本赤1コス
-  for (let i = 0; i < 12; i++) ids.push(0);   // カー
-  // ぐわぐわダック
-  for (let i = 0; i < 8; i++) ids.push(11);
-  // タイタン
-  for (let i = 0; i < 4; i++) ids.push(9);
-  // ジーユー
-  for (let i = 0; i < 4; i++) ids.push(20);
-  // エンハンス
-  for (let i = 0; i < 4; i++) ids.push(21);
-  // 背筋がヒヤリ
-  for (let i = 0; i < 4; i++) ids.push(22);
-  // 終焉の大火
-  for (let i = 0; i < 4; i++) ids.push(6);
-  // 伝説の勇者イフリート
-  for (let i = 0; i < 4; i++) ids.push(8);
-
-  // 足りなければ適当にカーを足す
-  while (ids.length < 60) ids.push(0);
-  return ids;
-}
-
-/* ========== バトル状態 ========== */
-let battle = null;
-let arienaiState = null;
-let pretzelState = null;
-
-/* ========== カード描画 ========== */
-function renderCardHtml(card) {
-  const classes = ["card", card.color];
-  if (card.rest) classes.push("rest");
-  if (card.isEnchanted) classes.push("enchanted");
-
-  const rarityBadge = card.isEnchanted ? "E" : card.rarity;
-  const atkHp = card.type === "character"
-    ? `ATK:${card.atk} / HP:${card.hp}/${card.maxHp}`
-    : "ソング";
-
-  const lorePart = card.type === "character"
-    ? `ロア:${card.lore}`
-    : "";
-
-  const inkSymbol = card.inkable ? "●" : "×";
-
-  return `
-    <div class="${classes.join(" ")}">
-      <div class="card-header">
-        <div class="card-cost">${card.cost}</div>
-        <div class="card-name-header">${card.name}</div>
-        <div class="card-inkable">${inkSymbol}</div>
-      </div>
-      <div class="card-illustration">
-        <!-- イラスト枠：あとで画像を差し込めるように空で残す -->
-      </div>
-      <div class="card-stats-row">
-        <span>${atkHp}</span>
-        <span>${lorePart}</span>
-      </div>
-      <div class="card-footer">
-        <div>色:${card.color} ／ レア:${rarityBadge}</div>
-      </div>
-    </div>
-  `;
-}
-
-/* ========== バトル開始関連 ========== */
-function buildCpuDeck(selectedColors) {
-  // 色未選択なら一応赤＋紫にしておく
-  if (!selectedColors || selectedColors.length === 0) {
-    selectedColors = ["red", "purple"];
-  }
-  if (selectedColors.length === 1) {
-    // 1色だけなら同じ色を2回
-    selectedColors = [selectedColors[0], selectedColors[0]];
-  }
-
-  const pool = cards.filter(c => selectedColors.includes(c.color));
-  const deckEntries = [];
-  // 適当に60枚作る
-  while (deckEntries.length < 60) {
-    const base = pool[Math.floor(Math.random() * pool.length)];
-    if (!base) break;
-    deckEntries.push({ id: base.id, isEnchanted: false });
-  }
-  shuffle(deckEntries);
-  return buildDeckInstancesFromSaved(deckEntries);
-}
-
-/* バトル開始 */
-function startBattle() {
-  if (cpuSelectedColors.length === 0) {
-    if (!confirm("CPUの色が選ばれていません。とりあえず赤＋紫で始めますか？")) {
-      return;
-    }
-    cpuSelectedColors = ["red", "purple"];
-    updateCpuButtons();
-  }
-
-  let playerDeckDef;
-  if (playerDeckMode === "default") {
-    const ids = makeDefaultDeck();
-    playerDeckDef = ids.map(id => ({ id, isEnchanted: false }));
-  } else if (playerDeckMode === "deck1") {
-    playerDeckDef = savedDecks[0] || [];
-  } else if (playerDeckMode === "deck2") {
-    playerDeckDef = savedDecks[1] || [];
-  } else if (playerDeckMode === "deck3") {
-    playerDeckDef = savedDecks[2] || [];
-  } else {
-    playerDeckDef = [];
-  }
-
-  const playerDeck = buildDeckInstancesFromSaved(playerDeckDef);
-  if (playerDeck.length < 60) {
-    alert("プレイヤーデッキが60枚未満です。デッキ編集から修正してください。");
     return;
   }
 
-  const cpuDeck = buildCpuDeck(cpuSelectedColors);
+  // ===== CPU戦モード =====
+  if (!gameState) return;
+  const me     = gameState.player;
+  const opp    = gameState.cpu;
 
-  battle = {
+  // CPUフィールド
+  opp.field.forEach((card, idx) => {
+    const el = createBattleCardElement(card, false, () => {
+      showCardDetail(card);
+    });
+    cpuFieldEl.appendChild(el);
+  });
+
+  // 自分フィールド
+  me.field.forEach((card, idx) => {
+    const el = createBattleCardElement(card, false, () => {
+      if (gameState.currentPlayer !== "player") {
+        showCardDetail(card);
+        return;
+      }
+      openCpuBattleActionPopup("field", idx);
+    });
+    playerFieldEl.appendChild(el);
+  });
+
+  // 自分手札
+  me.hand.forEach((card, idx) => {
+    const el = createBattleCardElement(card, true, () => {
+      if (gameState.currentPlayer !== "player") {
+        showCardDetail(card);
+        return;
+      }
+      if (card.type === "character") {
+        cpuBattlePlayCharacter(idx);
+      } else {
+        // ソング/アクションは今は詳細表示のみ（簡易）
+        showCardDetail(card);
+      }
+    });
+    playerHandEl.appendChild(el);
+  });
+
+  if (cpuHandCountEl) cpuHandCountEl.textContent = opp.hand.length;
+  if (cLoreEl)        cLoreEl.textContent        = opp.lore || 0;
+  if (cDeckEl)        cDeckEl.textContent        = opp.deck.length;
+
+  if (playerLoreEl)   playerLoreEl.textContent   = me.lore || 0;
+  if (playerInkCurEl) playerInkCurEl.textContent = me.inkCurrent || 0;
+  if (playerInkMaxEl) playerInkMaxEl.textContent = me.inkMax || 0;
+  if (playerDeckEl)   playerDeckEl.textContent   = me.deck.length;
+
+  if (turnInfoEl) {
+    turnInfoEl.textContent =
+      (gameState.currentPlayer === "player")
+        ? "自分のターン（CPU戦）"
+        : "CPUのターン";
+  }
+}
+
+/* 1枚のカードをHTML要素化（バトル用） */
+function createBattleCardElement(card, isHand, onClick) {
+  const div = document.createElement("div");
+  div.className = "card " + card.color + (card.rest ? " rest" : "") +
+                  (card.enchanted ? " enchanted" : "");
+  div.onclick = onClick;
+
+  const header = document.createElement("div");
+  header.className = "card-header";
+  const costEl = document.createElement("div");
+  costEl.className = "card-cost";
+  costEl.textContent = card.cost;
+  const nameEl = document.createElement("div");
+  nameEl.className = "card-name-header";
+  nameEl.textContent = card.name;
+  const inkableEl = document.createElement("div");
+  inkableEl.className = "card-inkable";
+  inkableEl.textContent = card.inkable ? "◎" : "×";
+  header.appendChild(costEl);
+  header.appendChild(nameEl);
+  header.appendChild(inkableEl);
+
+  const illust = document.createElement("div");
+  illust.className = "card-illustration";
+  // 実画像を使わない簡易プレースホルダー
+  const ph = document.createElement("div");
+  ph.style.width = "100%";
+  ph.style.height = "100%";
+  ph.style.display = "flex";
+  ph.style.alignItems = "center";
+  ph.style.justifyContent = "center";
+  ph.style.fontSize = "9px";
+  ph.style.color = "#000";
+  ph.textContent = card.name;
+  illust.appendChild(ph);
+
+  const statRow = document.createElement("div");
+  statRow.className = "card-stats-row";
+  const atkEl = document.createElement("div");
+  atkEl.textContent = "ATK " + card.atk;
+  const hpEl = document.createElement("div");
+  hpEl.textContent = "HP " + card.hp;
+  const loreEl = document.createElement("div");
+  loreEl.textContent = "ロア " + card.lore;
+  statRow.appendChild(atkEl);
+  statRow.appendChild(hpEl);
+  statRow.appendChild(loreEl);
+
+  const footer = document.createElement("div");
+  footer.className = "card-footer";
+  footer.textContent =
+    (card.type === "character" ? "キャラ" :
+     card.type === "song" ? "ソング" : card.type) +
+    (card.effect ? "／効果あり" : "");
+
+  div.appendChild(header);
+  div.appendChild(illust);
+  div.appendChild(statRow);
+  div.appendChild(footer);
+
+  return div;
+}
+
+/* ========== CPU戦用ロジック ========== */
+
+let cpuStrength = "normal"; // "normal" or "strong"
+let cpuColors = [];
+let selectedPlayerDeckKey = "default";
+let gameState = null;
+
+function openCpuConfig() {
+  showScreen("cpu");
+}
+
+function setCpuStrength(level) {
+  cpuStrength = level;
+  const btnN = document.getElementById("btnCpuNormal");
+  const btnS = document.getElementById("btnCpuStrong");
+  if (btnN) btnN.classList.toggle("toggle-selected", level === "normal");
+  if (btnS) btnS.classList.toggle("toggle-selected", level === "strong");
+}
+
+function setCpuColor(color) {
+  const idx = cpuColors.indexOf(color);
+  if (idx >= 0) {
+    cpuColors.splice(idx, 1);
+  } else {
+    if (cpuColors.length >= 2) {
+      alert("CPUデッキ色は2色までです。");
+      return;
+    }
+    cpuColors.push(color);
+  }
+  ["red","purple","blue","yellow","white","green"].forEach(c => {
+    const btn = document.getElementById("cpu" + c.charAt(0).toUpperCase() + c.slice(1));
+    if (btn) btn.classList.toggle("toggle-selected", cpuColors.includes(c));
+  });
+}
+
+function selectPlayerDeck(key) {
+  selectedPlayerDeckKey = key;
+  const list = [
+    {id:"btnPlayerDefault", key:"default"},
+    {id:"btnDeck1", key:"deck1"},
+    {id:"btnDeck2", key:"deck2"},
+    {id:"btnDeck3", key:"deck3"}
+  ];
+  list.forEach(info => {
+    const btn = document.getElementById(info.id);
+    if (!btn) return;
+    btn.classList.toggle("toggle-selected", info.key === key);
+  });
+}
+
+/* デフォルト赤デッキ */
+function makeDefaultDeck() {
+  const ids = [];
+  for (let i = 0; i < 10; i++) ids.push(0);   // カー
+  for (let i = 0; i < 8; i++)  ids.push(11);  // ぐわぐわダック
+  for (let i = 0; i < 4; i++)  ids.push(9);   // タイタン
+  for (let i = 0; i < 2; i++)  ids.push(8);   // イフリート
+  for (let i = 0; i < 2; i++)  ids.push(6);   // 終焉の大火
+  return ids;
+}
+
+/* savedDecks からデッキを生成（なければデフォルト） */
+function makePlayerDeckFromSaved(key) {
+  if (key === "default") {
+    return makeDefaultDeck();
+  }
+  const idx = key === "deck1" ? 0 : key === "deck2" ? 1 : 2;
+  const arr = savedDecks[idx];
+  if (!Array.isArray(arr) || arr.length < 40) {
+    alert("そのデッキは未保存か40枚未満のため、デフォルト赤デッキになります。");
+    return makeDefaultDeck();
+  }
+  return arr.slice();
+}
+
+/* CPU用 2色ランダムデッキ（簡易） */
+function makeCpuDeck() {
+  if (cpuColors.length === 0) cpuColors = ["red","purple"];
+  const cols = cpuColors.slice();
+  while (cols.length < 2) cols.push(cols[0]);
+
+  const ids = [];
+  for (let i = 0; i < 30; i++) {
+    const c = cols[i % 2];
+    const candidates = cards.filter(cd => cd.color === c && cd.type === "character");
+    if (candidates.length === 0) {
+      ids.push(0);
+    } else {
+      const base = candidates[Math.floor(Math.random() * candidates.length)];
+      ids.push(base.id);
+    }
+  }
+  return ids;
+}
+
+function startBattle() {
+  battleMode = "cpu";
+
+  const playerDeckIds = makePlayerDeckFromSaved(selectedPlayerDeckKey);
+  const cpuDeckIds    = makeCpuDeck();
+
+  const playerDeck = playerDeckIds.map(id => makeCardInstance(cards.find(c => c.id === id), false));
+  const cpuDeck    = cpuDeckIds.map(id => makeCardInstance(cards.find(c => c.id === id), false));
+
+  shuffle(playerDeck);
+  shuffle(cpuDeck);
+
+  gameState = {
     turnCount: 1,
     currentPlayer: "player",
     player: {
@@ -1596,533 +1637,535 @@ function startBattle() {
     }
   };
 
-  const logEl = document.getElementById("log");
-  if (logEl) logEl.innerHTML = "";
-
-  // 初期手札 5枚ずつ
   for (let i = 0; i < 5; i++) {
-    drawCardFor("player");
-    drawCardFor("cpu");
+    if (gameState.player.deck.length) {
+      gameState.player.hand.push(gameState.player.deck.shift());
+    }
+    if (gameState.cpu.deck.length) {
+      gameState.cpu.hand.push(gameState.cpu.deck.shift());
+    }
   }
+
+  startCpuStyleTurn("player", true);
 
   showScreen("battle");
-  addLog("バトル開始！");
-  startPlayerTurn(true);
-}
-
-/* ========== 共通バトルユーティリティ ========== */
-function sideLabel(side) {
-  return side === "player" ? "自分" : "相手";
-}
-
-function drawCardFor(side) {
-  if (!battle) return;
-  const s = battle[side];
-  if (!s) return;
-  if (s.deck.length === 0) {
-    addLog(sideLabel(side) + "のデッキが切れた！");
-    return;
-  }
-  const card = s.deck.shift();
-  s.hand.push(card);
-}
-
-function addLog(text) {
   const logEl = document.getElementById("log");
-  if (!logEl) return;
-  const div = document.createElement("div");
-  div.textContent = text;
-  logEl.appendChild(div);
-  logEl.scrollTop = logEl.scrollHeight;
+  if (logEl) logEl.innerHTML = "";
+  addLog("CPU戦を開始しました。");
+  updateBattleUI();
 }
 
-function canCharacterAct(card) {
-  if (!card) return false;
-  if (card.rest) return false;
-  if (card.frozen) return false;
-  return true;
-}
-
-function canCharacterAttack(card) {
-  if (!canCharacterAct(card)) return false;
-  // 召喚ターンは攻撃不可（突進持ちはOK）
-  if (!card.rush && battle && card.summonTurn === battle.turnCount) {
-    return false;
-  }
-  return true;
-}
-
-/* 勝敗判定（ロア20で勝ちにしておく） */
-function checkWin() {
-  if (!battle) return false;
-  if (battle.player.lore >= 20) {
-    alert("ロア20到達！あなたの勝ち！");
-    endBattleToMenu();
-    return true;
-  }
-  if (battle.cpu.lore >= 20) {
-    alert("相手がロア20に到達…負けてしまった。");
-    endBattleToMenu();
-    return true;
-  }
-  return false;
-}
-
-/* ========== ターン処理 ========== */
-function startPlayerTurn(isFirst) {
-  if (!battle) return;
+function startCpuStyleTurn(who, isFirst) {
+  if (!gameState) return;
   if (!isFirst) {
-    battle.turnCount++;
-  } else {
-    battle.turnCount = 1;
+    gameState.turnCount++;
   }
-  battle.currentPlayer = "player";
-
-  // インク増加（最大10）
-  battle.player.inkMax = Math.min(battle.player.inkMax + 1, 10);
-  battle.player.inkCurrent = battle.player.inkMax;
-
-  // 立たせる＆凍結解除
-  battle.player.field.forEach(c => {
+  gameState.currentPlayer = who;
+  const side = (who === "player") ? gameState.player : gameState.cpu;
+  side.inkMax = Math.min(side.inkMax + 1, 10);
+  side.inkCurrent = side.inkMax;
+  side.field.forEach(c => {
     c.rest = false;
-    if (c.frozen) c.frozen = false;
+    c.frozen = false;
   });
-
-  // ★ ターン開始時ドロー（必ず1枚だけ）
-  drawCardFor("player");
-  addLog("自分はターン開始時のドローで1枚引いた。");
-
-  addLog("=== 自分のターン " + battle.turnCount + " ===");
+  if (side.deck.length) {
+    const c = side.deck.shift();
+    side.hand.push(c);
+  }
+  addLog(`=== ${who === "player" ? "自分" : "CPU"}のターン ${gameState.turnCount} ===`);
   updateBattleUI();
+
+  if (who === "cpu") {
+    setTimeout(cpuDoTurn, 400);
+  }
 }
 
-function startCpuTurn() {
-  if (!battle) return;
-  battle.currentPlayer = "cpu";
-
-  battle.cpu.inkMax = Math.min(battle.cpu.inkMax + 1, 10);
-  battle.cpu.inkCurrent = battle.cpu.inkMax;
-  battle.cpu.field.forEach(c => {
-    c.rest = false;
-    if (c.frozen) c.frozen = false;
-  });
-
-  // ★ CPUもターン開始時に1ドローだけ
-  drawCardFor("cpu");
-  addLog("相手はターン開始時のドローで1枚引いた。");
-
-  addLog("=== 相手のターン " + battle.turnCount + " ===");
-
-  // CPU行動
-  cpuDoTurn();
-}
-
-/* プレイヤー：ターン終了 */
 function endTurn() {
-  if (!battle) return;
-  if (battle.currentPlayer !== "player") return;
-
-  addLog("自分はターンを終了した。");
-  updateBattleUI();
-  startCpuTurn();
-}
-
-/* バトルからメニューへ戻る */
-function endBattleToMenu() {
-  battle = null;
-  arienaiState = null;
-  pretzelState = null;
-  showScreen("menu");
-}
-
-/* ========== 召喚時効果（ケルサ含む） ========== */
-function handleOnSummonEffects(side, card) {
-  if (!battle || !card || !card.effect) return;
-
-  switch (card.effect) {
-    case "freeze2":
-      onSummonFreeze2(side, card);
-      break;
-    default:
-      break;
-  }
-}
-
-/* 氷結の女王ケルサ：相手キャラを最大2体まで凍結 */
-function onSummonFreeze2(side, card) {
-  const me = battle[side];
-  const enemy = side === "player" ? battle.cpu : battle.player;
-  if (!enemy || enemy.field.length === 0) {
-    addLog(`「${card.name}」の効果：相手の場にキャラがいないため、凍結できなかった。`);
+  if (battleMode === "online") {
+    if (!onlineBattle || !myOnlineSide) return;
+    onlineEndTurn(myOnlineSide);
     return;
   }
-
-  if (side === "player") {
-    // プレイヤーは自分で対象を選ぶ（最大2体）
-    let msg = `「${card.name}」召喚時効果：凍結する相手を最大2体まで選んでください。\n`;
-    enemy.field.forEach((c, i) => {
-      msg += `${i}: ${c.name} (ATK:${c.atk} / HP:${c.hp})\n`;
-    });
-    msg += "\n例: 0 / 0,2 / 1 3（空欄でスキップ）";
-
-    const input = prompt(msg, "");
-    if (!input) {
-      addLog("凍結するキャラは選ばなかった。");
-      return;
-    }
-
-    const raw = input.split(/[\s,]+/).filter(Boolean);
-    const idxs = [];
-    raw.forEach(t => {
-      const n = parseInt(t, 10);
-      if (!isNaN(n) && n >= 0 && n < enemy.field.length && !idxs.includes(n)) {
-        idxs.push(n);
-      }
-    });
-
-    const chosen = idxs.slice(0, 2);
-    if (chosen.length === 0) {
-      addLog("凍結するキャラは選ばなかった。");
-      return;
-    }
-
-    chosen.forEach(i => {
-      const target = enemy.field[i];
-      if (target) {
-        target.frozen = true;
-        addLog(`「${card.name}」の効果：相手の「${target.name}」を凍結した。`);
-      }
-    });
-  } else {
-    // CPU側：ATKが高い順に最大2体
-    const sorted = enemy.field.slice().sort((a, b) => b.atk - a.atk);
-    const targets = sorted.slice(0, 2);
-    targets.forEach(t => {
-      t.frozen = true;
-      addLog(`相手の「${card.name}」の効果で、自分の「${t.name}」が凍結した。`);
-    });
-  }
-
-  updateBattleUI();
+  if (!gameState || gameState.currentPlayer !== "player") return;
+  startCpuStyleTurn("cpu", false);
 }
 
-/* ========== CPUの行動 ========== */
 function cpuDoTurn() {
-  if (!battle) return;
+  if (!gameState || gameState.currentPlayer !== "cpu") return;
+  const me  = gameState.cpu;
+  const you = gameState.player;
 
-  const cpu = battle.cpu;
-  const me = battle.player;
-
-  // 1. 可能な限りキャラを召喚
-  let summonedSomething = true;
-  while (summonedSomething) {
-    summonedSomething = false;
-    for (let i = 0; i < cpu.hand.length; i++) {
-      const card = cpu.hand[i];
-      if (card.type === "character" && card.cost <= cpu.inkCurrent) {
-        cpu.inkCurrent -= card.cost;
-        cpu.hand.splice(i, 1);
+  // 1. 出せるキャラを全部出す（簡易）
+  let played = true;
+  while (played) {
+    played = false;
+    for (let i = 0; i < me.hand.length; i++) {
+      const card = me.hand[i];
+      if (card.type === "character" && card.cost <= me.inkCurrent) {
+        me.inkCurrent -= card.cost;
         card.rest = false;
-        card.summonTurn = battle.turnCount;
-        cpu.field.push(card);
-        addLog("相手は「" + card.name + "」を召喚した。");
-        handleOnSummonEffects("cpu", card);
-        summonedSomething = true;
+        card.frozen = false;
+        card.summonTurn = gameState.turnCount;
+        me.field.push(card);
+        me.hand.splice(i, 1);
+        addLog(`CPUは「${card.name}」を召喚した。`);
+        played = true;
         break;
       }
     }
   }
 
-  updateBattleUI();
-
-  // 2. チャレンジ or シーク
-  cpu.field.forEach((card, idx) => {
-    if (!canCharacterAttack(card)) return;
-
-    if (me.field.length > 0 && card.atk > 0) {
-      const targetIdx = Math.floor(Math.random() * me.field.length);
-      const target = me.field[targetIdx];
-      resolveCombat("cpu", idx, targetIdx);
-    } else if (card.lore > 0 && !card.rest) {
-      // 相手キャラがいないならロア稼ぎ
+  // 2. 召喚済みキャラでシーク or チャレンジ（適当）
+  me.field.forEach((card, idx) => {
+    if (card.rest || card.frozen) return;
+    if (card.summonTurn === gameState.turnCount && !card.rush) {
+      return;
+    }
+    if (you.field.length === 0 || card.lore >= 2) {
       card.rest = true;
-      cpu.lore += card.lore;
-      addLog("相手の「" + card.name + "」がシークし、相手のロアが" + card.lore + "増えた。（計" + cpu.lore + "）");
+      me.lore += card.lore || 0;
+      addLog(`CPUの「${card.name}」がシークしてロアを${card.lore}獲得した。（合計 ${me.lore}）`);
+    } else {
+      const target = you.field[0];
+      card.rest = true;
+      addLog(`CPUの「${card.name}」があなたの「${target.name}」にチャレンジ！`);
+      target.hp -= card.atk;
+      card.hp -= target.atk;
+      if (target.hp <= 0) {
+        addLog(`あなたの「${target.name}」は退場した。`);
+        you.field.splice(you.field.indexOf(target), 1);
+      }
+      if (card.hp <= 0) {
+        addLog(`CPUの「${card.name}」は退場した。`);
+        me.field.splice(me.field.indexOf(card), 1);
+      }
     }
   });
 
+  checkCpuStyleWin();
   updateBattleUI();
-  if (checkWin()) return;
 
-  // ターン終了 → 自分のターンへ
-  addLog("相手はターンを終了した。");
-  startPlayerTurn(false);
+  // ターン終了
+  startCpuStyleTurn("player", false);
 }
 
-/* ========== 戦闘処理 ========== */
-function resolveCombat(attackerSide, attackerIndex, defenderIndex) {
-  if (!battle) return;
-  const atkSide = battle[attackerSide];
-  const defSide = attackerSide === "player" ? battle.cpu : battle.player;
-
-  const attacker = atkSide.field[attackerIndex];
-  const defender = defSide.field[defenderIndex];
-  if (!attacker || !defender) return;
-
-  if (!canCharacterAttack(attacker)) {
-    if (attackerSide === "player") {
-      alert("このキャラはまだチャレンジできません。");
-    }
-    return;
-  }
-
-  addLog(
-    sideLabel(attackerSide) + "の「" + attacker.name + "」が" +
-    sideLabel(attackerSide === "player" ? "cpu" : "player") +
-    "の「" + defender.name + "」にチャレンジ！"
-  );
-
-  defender.hp -= attacker.atk;
-  attacker.hp -= defender.atk;
-
-  attacker.rest = true;
-
-  if (defender.hp <= 0) {
-    addLog("「" + defender.name + "」は退場した。");
-    defSide.field.splice(defenderIndex, 1);
-  }
-  if (attacker.hp <= 0) {
-    addLog("「" + attacker.name + "」は退場した。");
-    atkSide.field.splice(attackerIndex, 1);
+function checkCpuStyleWin() {
+  if (!gameState) return;
+  const LORE_WIN = 20;
+  if (gameState.player.lore >= LORE_WIN && gameState.cpu.lore >= LORE_WIN) {
+    addLog("両者ロア20以上！引き分けです。");
+  } else if (gameState.player.lore >= LORE_WIN) {
+    addLog("あなたの勝利！（ロア20到達）");
+  } else if (gameState.cpu.lore >= LORE_WIN) {
+    addLog("CPUの勝利！（ロア20到達）");
   }
 }
 
-/* ========== プレイヤー側クリック処理 ========== */
-function onPlayerHandCardClick(index) {
-  if (!battle) return;
-  if (battle.currentPlayer !== "player") return;
-
-  const card = battle.player.hand[index];
-  if (!card) return;
-
-  const actionArea = document.getElementById("actionArea");
-  let html = `<div>手札：「${card.name}」を選択中</div>`;
-
-  if (card.type === "character") {
-    html += `<button class="btn small" onclick="playPlayerCharacter(${index})">
-      召喚（コスト${card.cost}）
-    </button>`;
-  } else if (card.type === "song") {
-    html += `<button class="btn small" onclick="playPlayerSong(${index})">
-      ソングを使用（コスト${card.cost}）
-    </button>`;
-  }
-
-  html += `<button class="btn small" onclick="showCardDetailFromBattle('player','hand',${index})">
-    カード詳細
-  </button>`;
-
-  actionArea.innerHTML = html;
-}
-
-function onPlayerFieldCardClick(index) {
-  if (!battle) return;
-  const card = battle.player.field[index];
-  if (!card) return;
-
-  const actionArea = document.getElementById("actionArea");
-  let html = `<div>場：「${card.name}」を選択中</div>`;
-
-  if (battle.currentPlayer === "player") {
-    if (canCharacterAct(card)) {
-      if (card.lore > 0) {
-        html += `<button class="btn small" onclick="doSeek(${index})">
-          シーク（ロア+${card.lore}）
-        </button>`;
-      }
-      if (battle.cpu.field.length > 0 && card.atk > 0) {
-        html += `<button class="btn small" onclick="doChallenge(${index})">
-          チャレンジ
-        </button>`;
-      }
-    } else {
-      html += `<div style="font-size:11px;opacity:0.8;">このキャラは現在行動できません。</div>`;
-    }
-  }
-
-  html += `<button class="btn small" onclick="showCardDetailFromBattle('player','field',${index})">
-    カード詳細
-  </button>`;
-
-  actionArea.innerHTML = html;
-}
-
-/* シーク（ロア獲得） */
-function doSeek(fieldIndex) {
-  if (!battle) return;
-  if (battle.currentPlayer !== "player") return;
-  const card = battle.player.field[fieldIndex];
-  if (!card || !canCharacterAct(card)) return;
-
-  card.rest = true;
-  battle.player.lore += card.lore;
-  addLog(`自分の「${card.name}」がシークし、ロアが${card.lore}増えた。（計${battle.player.lore}）`);
-  updateBattleUI();
-  checkWin();
-}
-
-/* チャレンジ */
-function doChallenge(fieldIndex) {
-  if (!battle) return;
-  if (battle.currentPlayer !== "player") return;
-  const card = battle.player.field[fieldIndex];
-  if (!card) return;
-
-  if (!canCharacterAttack(card)) {
-    alert("このキャラはまだチャレンジできません（突進持ち「タイタン」なら出たターンでもOK）");
-    return;
-  }
-  if (battle.cpu.field.length === 0) {
-    alert("相手の場にキャラがいません。");
-    return;
-  }
-  const targetIndex = Math.floor(Math.random() * battle.cpu.field.length);
-  resolveCombat("player", fieldIndex, targetIndex);
-  updateBattleUI();
-  checkWin();
-}
-
-/* プレイヤー：キャラ召喚 */
-function playPlayerCharacter(handIndex) {
-  if (!battle) return;
-  if (battle.currentPlayer !== "player") return;
-  const hand = battle.player.hand;
-  const card = hand[handIndex];
+/* プレイヤー操作：手札のキャラを出す（CPU戦） */
+function cpuBattlePlayCharacter(handIndex) {
+  if (!gameState || gameState.currentPlayer !== "player") return;
+  const me = gameState.player;
+  const card = me.hand[handIndex];
   if (!card || card.type !== "character") return;
-
-  if (battle.player.inkCurrent < card.cost) {
-    alert("インクが足りません。");
+  if (me.inkCurrent < card.cost) {
+    addLog("インクが足りません。");
     return;
   }
-
-  battle.player.inkCurrent -= card.cost;
-  hand.splice(handIndex, 1);
+  me.inkCurrent -= card.cost;
+  me.hand.splice(handIndex, 1);
   card.rest = false;
   card.frozen = false;
-  card.summonTurn = battle.turnCount;
-  battle.player.field.push(card);
-
-  addLog(`自分は「${card.name}」を召喚した。`);
-
-  // 召喚時効果（ケルサ等）
-  handleOnSummonEffects("player", card);
-
+  card.summonTurn = gameState.turnCount;
+  me.field.push(card);
+  addLog(`あなたは「${card.name}」を召喚した。`);
   updateBattleUI();
 }
 
-/* プレイヤー：ソング使用（簡略版：今はログだけ） */
-function playPlayerSong(handIndex) {
-  if (!battle) return;
-  if (battle.currentPlayer !== "player") return;
-  const hand = battle.player.hand;
-  const card = hand[handIndex];
-  if (!card || card.type !== "song") return;
-
-  if (battle.player.inkCurrent < card.cost) {
-    alert("インクが足りません。");
+/* プレイヤー操作：フィールドキャラの行動選択（CPU戦） */
+function openCpuBattleActionPopup(zone, index) {
+  const card = gameState.player.field[index];
+  if (!card) return;
+  if (card.rest || card.frozen) {
+    showCardDetail(card);
+    return;
+  }
+  if (card.summonTurn === gameState.turnCount && !card.rush) {
+    showCardDetail(card);
     return;
   }
 
-  battle.player.inkCurrent -= card.cost;
-  hand.splice(handIndex, 1);
+  const area = document.getElementById("actionArea");
+  if (!area) return;
 
-  addLog(`自分はソング「${card.name}」を使用した。（詳細な効果は簡略処理中）`);
-  updateBattleUI();
+  area.innerHTML = "";
+  const title = document.createElement("div");
+  title.textContent = `「${card.name}」の行動を選択：`;
+  area.appendChild(title);
+
+  const btnSeek = document.createElement("button");
+  btnSeek.className = "btn small";
+  btnSeek.textContent = "シーク（ロア獲得）";
+  btnSeek.onclick = () => {
+    card.rest = true;
+    gameState.player.lore += card.lore || 0;
+    addLog(`あなたの「${card.name}」がシークしてロアを${card.lore}獲得。（合計 ${gameState.player.lore}）`);
+    checkCpuStyleWin();
+    updateBattleUI();
+    area.textContent = "キャラをタップすると行動を選べます。";
+  };
+
+  const btnChal = document.createElement("button");
+  btnChal.className = "btn small";
+  btnChal.textContent = "チャレンジ（バトル）";
+  btnChal.onclick = () => {
+    if (!gameState.cpu.field.length) {
+      addLog("相手フィールドにキャラがいません。");
+      return;
+    }
+    const target = gameState.cpu.field[0]; // 簡易：先頭
+    card.rest = true;
+    addLog(`あなたの「${card.name}」がCPUの「${target.name}」にチャレンジ！`);
+    target.hp -= card.atk;
+    card.hp -= target.atk;
+    if (target.hp <= 0) {
+      addLog(`CPUの「${target.name}」は退場した。`);
+      gameState.cpu.field.splice(0, 1);
+    }
+    if (card.hp <= 0) {
+      addLog(`あなたの「${card.name}」は退場した。`);
+      gameState.player.field.splice(index, 1);
+    }
+    checkCpuStyleWin();
+    updateBattleUI();
+    area.textContent = "キャラをタップすると行動を選べます。";
+  };
+
+  area.appendChild(btnSeek);
+  area.appendChild(btnChal);
 }
 
-/* カード詳細をバトル中から開く */
-function showCardDetailFromBattle(side, place, index) {
-  if (!battle) return;
-  let card = null;
-  if (place === "hand") {
-    card = battle[side].hand[index];
-  } else if (place === "field") {
-    card = battle[side].field[index];
-  }
+/* オンライン用 行動選択ポップアップ（簡易） */
+function openOnlineActionPopup(zone, index) {
+  if (!onlineBattle || !isMyTurnOnline()) return;
+  const me = onlineBattle[myOnlineSide];
+  const card = me.field[index];
   if (!card) return;
-  showCardDetail(card);
+
+  const area = document.getElementById("actionArea");
+  if (!area) return;
+
+  area.innerHTML = "";
+  const title = document.createElement("div");
+  title.textContent = `「${card.name}」の行動を選択（オンライン）：`;
+  area.appendChild(title);
+
+  const btnSeek = document.createElement("button");
+  btnSeek.className = "btn small";
+  btnSeek.textContent = "シーク";
+  btnSeek.onclick = () => {
+    onlineSeek(myOnlineSide, index);
+    area.textContent = "キャラをタップすると行動を選べます。（ルーム戦では簡易操作）";
+  };
+
+  const btnChal = document.createElement("button");
+  btnChal.className = "btn small";
+  btnChal.textContent = "チャレンジ";
+  btnChal.onclick = () => {
+    onlineChallenge(myOnlineSide, index);
+    area.textContent = "キャラをタップすると行動を選べます。（ルーム戦では簡易操作）";
+  };
+
+  area.appendChild(btnSeek);
+  area.appendChild(btnChal);
 }
 
-/* ========== 画面更新 ========== */
-function updateBattleUI() {
-  if (!battle) return;
+/* バトル終了 → メニューへ */
+function endBattleToMenu() {
+  gameState = null;
+  onlineBattle = null;
+  battleMode = "cpu";
+  showScreen("menu");
+}
 
-  // CPU側
-  const cpuHandCountEl = document.getElementById("cpuHandCount");
-  const cLoreEl = document.getElementById("cLore");
-  const cDeckEl = document.getElementById("cDeck");
-  if (cpuHandCountEl) cpuHandCountEl.textContent = battle.cpu.hand.length;
-  if (cLoreEl) cLoreEl.textContent = battle.cpu.lore;
-  if (cDeckEl) cDeckEl.textContent = battle.cpu.deck.length;
+/* ========== ショップ / パック ========== */
 
-  // プレイヤー側ステータス
-  const pLoreEl = document.getElementById("playerLore");
-  const pInkCurEl = document.getElementById("playerInkCurrent");
-  const pInkMaxEl = document.getElementById("playerInkMax");
-  const pDeckEl = document.getElementById("playerDeck");
-  const turnInfoEl = document.getElementById("turnInfo");
+function showShop() {
+  updateStoneDisplays();
+  showScreen("shop");
+}
 
-  if (pLoreEl) pLoreEl.textContent = battle.player.lore;
-  if (pInkCurEl) pInkCurEl.textContent = battle.player.inkCurrent;
-  if (pInkMaxEl) pInkMaxEl.textContent = battle.player.inkMax;
-  if (pDeckEl) pDeckEl.textContent = battle.player.deck.length;
-  if (turnInfoEl) {
-    turnInfoEl.textContent =
-      battle.currentPlayer === "player" ? "自分のターン" : "相手のターン";
+function debugAddStones() {
+  stones += 100;
+  saveStones();
+}
+
+function showPack() {
+  updateStoneDisplays();
+  const res = document.getElementById("packResult");
+  if (res) res.innerHTML = "";
+  showScreen("pack");
+}
+
+function openPack() {
+  if (stones < 5) {
+    alert("ドリームストーンが足りません。");
+    return;
   }
+  stones -= 5;
+  saveStones();
 
-  // フィールド・手札描画
-  const cpuFieldEl = document.getElementById("cpuField");
-  const playerFieldEl = document.getElementById("playerField");
-  const playerHandEl = document.getElementById("playerHand");
+  const res = document.getElementById("packResult");
+  if (!res) return;
+  res.innerHTML = "";
 
-  if (cpuFieldEl) {
-    cpuFieldEl.innerHTML = "";
-    battle.cpu.field.forEach(card => {
-      const wrap = document.createElement("div");
-      wrap.innerHTML = renderCardHtml(card);
-      cpuFieldEl.appendChild(wrap.firstElementChild);
+  const drawn = [];
+  for (let i = 0; i < 5; i++) {
+    const base = cards[Math.floor(Math.random() * cards.length)];
+    const isEnchanted = Math.random() < ENCHANTED_RATE;
+    const inst = makeCardInstance(base, isEnchanted);
+    drawn.push(inst);
+
+    if (isEnchanted) {
+      enchantedCollection[base.id] = (enchantedCollection[base.id] || 0) + 1;
+    } else {
+      collection[base.id] = (collection[base.id] || 0) + 1;
+    }
+  }
+  saveCollection();
+  saveEnchantedCollection();
+
+  drawn.forEach(card => {
+    const box = document.createElement("div");
+    box.className = "card-box " + card.color;
+    const name = document.createElement("div");
+    name.className = "card-name";
+    name.textContent = card.name + (card.enchanted ? "【E】" : "");
+    const stats = document.createElement("div");
+    stats.className = "card-stats";
+    stats.textContent =
+      `種類:${card.type} コスト:${card.cost} ATK:${card.atk} HP:${card.hp} ロア:${card.lore}`;
+    box.onclick = () => showCardDetail(card);
+    box.appendChild(name);
+    box.appendChild(stats);
+    res.appendChild(box);
+  });
+}
+
+/* ========== デッキ編集 ========== */
+
+let deckEditCounts = {};
+
+function openDeckBuilder() {
+  currentDeckIndex = 0;
+  loadDeckToEditor(0);
+  showScreen("deck");
+}
+
+function loadDeckToEditor(idx) {
+  currentDeckIndex = idx;
+  document.getElementById("currentDeckLabel").textContent = (idx + 1);
+
+  deckEditCounts = {};
+  const deck = savedDecks[idx];
+  if (Array.isArray(deck)) {
+    deck.forEach(id => {
+      deckEditCounts[id] = (deckEditCounts[id] || 0) + 1;
     });
   }
+  renderDeckEditor();
+}
 
-  if (playerFieldEl) {
-    playerFieldEl.innerHTML = "";
-    battle.player.field.forEach((card, idx) => {
-      const wrap = document.createElement("div");
-      wrap.innerHTML = renderCardHtml(card);
-      const el = wrap.firstElementChild;
-      el.onclick = () => onPlayerFieldCardClick(idx);
-      playerFieldEl.appendChild(el);
-    });
-  }
+function switchDeck(idx) {
+  loadDeckToEditor(idx);
+}
 
-  if (playerHandEl) {
-    playerHandEl.innerHTML = "";
-    battle.player.hand.forEach((card, idx) => {
-      const wrap = document.createElement("div");
-      wrap.innerHTML = renderCardHtml(card);
-      const el = wrap.firstElementChild;
-      el.onclick = () => onPlayerHandCardClick(idx);
-      playerHandEl.appendChild(el);
-    });
+function renderDeckEditor() {
+  const listEl = document.getElementById("deckCardList");
+  if (!listEl) return;
+  listEl.innerHTML = "";
+
+  let total = 0;
+  Object.values(deckEditCounts).forEach(c => total += c);
+
+  const totalInfo = document.createElement("div");
+  totalInfo.style.marginBottom = "6px";
+  totalInfo.textContent = `現在の枚数：${total}枚`;
+  listEl.appendChild(totalInfo);
+
+  cards.forEach(card => {
+    const count = deckEditCounts[card.id] || 0;
+
+    const box = document.createElement("div");
+    box.className = "card-box " + card.color;
+
+    const name = document.createElement("div");
+    name.className = "card-name";
+    name.textContent = card.name;
+
+    const stats = document.createElement("div");
+    stats.className = "card-stats";
+    stats.textContent =
+      `コスト:${card.cost} ATK:${card.atk} HP:${card.hp} ロア:${card.lore}（所持:${collection[card.id] || 0} / E:${enchantedCollection[card.id] || 0}）`;
+
+    const ctr = document.createElement("div");
+    const minus = document.createElement("button");
+    minus.className = "btn small";
+    minus.textContent = "-";
+    minus.onclick = () => {
+      if (deckEditCounts[card.id] > 0) {
+        deckEditCounts[card.id]--;
+        if (deckEditCounts[card.id] <= 0) delete deckEditCounts[card.id];
+        renderDeckEditor();
+      }
+    };
+    const plus = document.createElement("button");
+    plus.className = "btn small";
+    plus.textContent = "+";
+    plus.onclick = () => {
+      const owned = (collection[card.id] || 0) + (enchantedCollection[card.id] || 0);
+      if (owned === 0) {
+        alert("このカードを1枚も所持していません。パックから引いてね。");
+        return;
+      }
+      const current = deckEditCounts[card.id] || 0;
+      if (card.id >= 0 && card.id <= 5) {
+        // 基本6種は無制限
+      } else if (current >= 4) {
+        alert("同名カードは4枚までです。");
+        return;
+      }
+      if (current >= owned) {
+        alert("所持枚数を超えています。");
+        return;
+      }
+      deckEditCounts[card.id] = current + 1;
+      renderDeckEditor();
+    };
+    const cText = document.createElement("span");
+    cText.style.marginLeft = "6px";
+    cText.textContent = `デッキ内: ${count}枚`;
+
+    ctr.appendChild(minus);
+    ctr.appendChild(plus);
+    ctr.appendChild(cText);
+
+    box.appendChild(name);
+    box.appendChild(stats);
+    box.appendChild(ctr);
+    listEl.appendChild(box);
+  });
+}
+
+function saveDeck() {
+  let total = 0;
+  const arr = [];
+  Object.keys(deckEditCounts).forEach(idStr => {
+    const id = Number(idStr);
+    const c = deckEditCounts[idStr];
+    total += c;
+    for (let i = 0; i < c; i++) arr.push(id);
+  });
+  if (total < 60) {
+    alert("デッキは60枚以上にしてください。（今は " + total + " 枚）");
+    return;
   }
+  savedDecks[currentDeckIndex] = arr;
+  savePlayerDecks();
+  alert("デッキを保存しました。");
+  updatePlayerDeckButtons();
+}
+
+function updatePlayerDeckButtons() {
+  const labels = [
+    {id:"btnDeck1", idx:0},
+    {id:"btnDeck2", idx:1},
+    {id:"btnDeck3", idx:2}
+  ];
+  labels.forEach(info => {
+    const btn = document.getElementById(info.id);
+    if (!btn) return;
+    const deck = savedDecks[info.idx];
+    if (Array.isArray(deck) && deck.length >= 40) {
+      btn.textContent = `デッキ${info.idx+1}（${deck.length}枚）`;
+    } else {
+      btn.textContent = `デッキ${info.idx+1}（未保存）`;
+    }
+  });
+}
+
+/* ========== コレクション表示 ========== */
+
+function openCollection() {
+  renderCollection();
+  showScreen("collection");
+}
+
+function renderCollection() {
+  const list = document.getElementById("collectionList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  cards.forEach(card => {
+    const normal = collection[card.id] || 0;
+    const e = enchantedCollection[card.id] || 0;
+    if (normal === 0 && e === 0) return;
+
+    const box = document.createElement("div");
+    box.className = "card-box " + card.color;
+    const name = document.createElement("div");
+    name.className = "card-name";
+    name.textContent = card.name;
+    const stats = document.createElement("div");
+    stats.className = "card-stats";
+    stats.textContent =
+      `コスト:${card.cost} ATK:${card.atk} HP:${card.hp} ロア:${card.lore} ／ 通常:${normal}枚 / E:${e}枚`;
+    box.onclick = () => showCardDetail(card);
+    box.appendChild(name);
+    box.appendChild(stats);
+    list.appendChild(box);
+  });
+}
+
+/* ========== カード詳細ポップアップ ========== */
+
+function showCardDetail(card) {
+  const ov = document.getElementById("cardDetailOverlay");
+  const inner = document.getElementById("cardDetailContent");
+  if (!ov || !inner) return;
+
+  inner.innerHTML = "";
+  const title = document.createElement("div");
+  title.style.fontWeight = "bold";
+  title.style.marginBottom = "4px";
+  title.textContent = card.name + (card.enchanted ? "【E】" : "");
+  const body = document.createElement("div");
+  body.innerHTML =
+    `色:${card.color}<br>` +
+    `種類:${card.type}<br>` +
+    `コスト:${card.cost}<br>` +
+    `ATK:${card.atk} / HP:${card.hp} / ロア:${card.lore}<br>` +
+    (card.effect ? `効果:${card.effect}` : "効果:（なし）");
+  inner.appendChild(title);
+  inner.appendChild(body);
+
+  ov.style.display = "block";
+}
+
+function closeCardDetail() {
+  const ov = document.getElementById("cardDetailOverlay");
+  if (ov) ov.style.display = "none";
 }
 
 /* ========== 初期化 ========== */
-window.addEventListener("load", () => {
-  loadData();      // ローカルセーブ読み込み
-  initFirebase();  // Firebase初期化（ルーム戦用）
-});
+
+window.onload = () => {
+  loadData();
+  initFirebase();
+  setCpuStrength("normal");
+  updatePlayerDeckButtons();
+};
 </script>
+
 </body>
 </html>
+
