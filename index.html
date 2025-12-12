@@ -1,362 +1,557 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <title>Dream-seeker TCG</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+/* ========== バトル状態 ========= */
+let battle=null;
 
-  <!-- Firebase SDK（ルーム戦用） -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+/* ルール固定：通常ドロー制限／インク置き制限 */
+function sideLabel(side){ return side==="player" ? "自分" : "相手"; }
 
-  <style>
-    * { box-sizing: border-box; }
+function addLog(text){
+  const logEl=document.getElementById("log");
+  if(!logEl) return;
+  const div=document.createElement("div");
+  div.textContent=text;
+  logEl.appendChild(div);
+  logEl.scrollTop=logEl.scrollHeight;
+}
 
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #181818;
-      color: #f5f5f5;
-    }
+function drawCardFor(side){
+  const s=battle?.[side];
+  if(!s) return;
+  if(s.deck.length===0){ addLog(`${sideLabel(side)}のデッキが切れた！`); return; }
+  s.hand.push(s.deck.shift());
+}
 
-    h1, h2 { text-align: center; margin: 12px 0; }
+/* ===== 行動可否 ===== */
+function isSummonSick(card){
+  if(!battle || !card) return false;
+  return (card.summonTurn === battle.turnCount);
+}
+function canCharacterActBase(card){
+  if(!card) return false;
+  if(card.type!=="character") return false;
+  if(card.rest) return false;
+  if(card.frozen) return false;
+  return true;
+}
+function canSeekOrSing(card){
+  if(!canCharacterActBase(card)) return false;
+  // 召喚酔い：シーク／歌うは不可
+  if(isSummonSick(card)) return false;
+  return true;
+}
+function canCharacterAttack(card){
+  if(!canCharacterActBase(card)) return false;
+  // 召喚ターンは攻撃不可（突進のみ例外）
+  if(isSummonSick(card) && !card.rush) return false;
+  return true;
+}
 
-    /* 🔥 必須（画面が切り替わらなかった原因） */
-    .screen { display: none; }
-    .screen.active { display: block; }
+/* ===== インク置き回数（リンで+1） ===== */
+function countLinOnField(side){
+  const f=battle?.[side]?.field || [];
+  return f.filter(c=>c.id===ID_LIN).length;
+}
+function inkPlaysLimit(side){
+  // ルール：基本1枚、リンがいる間+1（複数リンなら複数加算）
+  return 1 + countLinOnField(side);
+}
 
-    .screen {
-      padding: 10px;
-      max-width: 520px;
-      margin: 0 auto;
-    }
+/* ===== 勝敗判定 ===== */
+function checkWin(){
+  if(!battle) return false;
+  if(battle.player.lore>=20){ alert("ロア20到達！あなたの勝ち！"); endBattleToMenu(); return true; }
+  if(battle.cpu.lore>=20){ alert("相手がロア20に到達…負け"); endBattleToMenu(); return true; }
+  return false;
+}
 
-    .btn {
-      width: 100%;
-      padding: 10px;
-      margin: 6px 0;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      font-size: 14px;
-      background: #444;
-      color: #f5f5f5;
-    }
-    .btn.primary { background: #2ecc71; color: #000; }
-    .btn.danger  { background: #e74c3c; }
-    .btn.small { width: auto; padding: 4px 8px; font-size: 12px; margin: 2px 4px 0 0; }
+/* ========== バトル開始 ========= */
+function buildCpuDeck(selectedColors){
+  if(!selectedColors || selectedColors.length===0) selectedColors=["red","purple"];
+  if(selectedColors.length===1) selectedColors=[selectedColors[0],selectedColors[0]];
+  const pool=cards.filter(c=>selectedColors.includes(c.color));
+  const deckEntries=[];
+  while(deckEntries.length<60){
+    const base=pool[Math.floor(Math.random()*pool.length)];
+    deckEntries.push({id:base.id,isEnchanted:false});
+  }
+  shuffle(deckEntries);
+  return buildDeckInstancesFromSaved(deckEntries);
+}
 
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      margin-bottom: 8px;
-    }
+function startBattle(){
+  if(cpuSelectedColors.length===0){
+    if(!confirm("CPU色が未選択。赤＋紫で開始しますか？")) return;
+    cpuSelectedColors=["red","purple"];
+    updateCpuButtons();
+  }
 
-    .card-box {
-      border: 1px solid #555;
-      border-radius: 8px;
-      padding: 6px;
-      margin: 4px 0;
-      font-size: 12px;
-      background: #202020;
-      cursor: pointer;
-    }
+  let playerDeckDef;
+  if(playerDeckMode==="default"){
+    playerDeckDef = makeDefaultDeck().map(id=>({id,isEnchanted:false}));
+  } else if(playerDeckMode==="deck1") playerDeckDef = savedDecks[0]||[];
+  else if(playerDeckMode==="deck2") playerDeckDef = savedDecks[1]||[];
+  else if(playerDeckMode==="deck3") playerDeckDef = savedDecks[2]||[];
+  else playerDeckDef=[];
 
-    .log {
-      background: #111;
-      border-radius: 8px;
-      padding: 6px;
-      font-size: 11px;
-      height: 120px;
-      overflow-y: auto;
-      border: 1px solid #333;
-      margin-top: 6px;
-    }
+  const playerDeck=buildDeckInstancesFromSaved(playerDeckDef);
+  if(playerDeck.length<60){ alert("プレイヤーデッキが60枚未満"); return; }
+  const cpuDeck=buildCpuDeck(cpuSelectedColors);
 
-    .status-box {
-      border: 3px solid #fff;
-      padding: 8px;
-      border-radius: 8px;
-      min-height: 120px;
-    }
-    .effect-box {
-      border: 3px solid #fff;
-      padding: 8px;
-      border-radius: 8px;
-      min-height: 120px;
-    }
+  battle = {
+    turnCount: 1,
+    currentPlayer: "player",
 
-    .card {
-      flex: 0 0 auto;
-      width: 96px;
-      height: 160px;
-      border-radius: 10px;
-      border: 3px solid #555;
-      background: #333;
-      color: #fff;
-      font-size: 10px;
-      box-sizing: border-box;
-      padding: 4px;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      cursor: pointer;
-      position: relative;
-      overflow: hidden;
-    }
+    // 1ターンの通常ドロー制御
+    normalDrawUsed: false,
 
-    .card.rest { opacity: 0.6; transform: rotate(8deg); }
+    // 1ターンのインク置き制御
+    inkPlaysUsed: { player:0, cpu:0 },
 
-    .card-header { 
-      display: flex; justify-content: space-between;
-      background: #000; padding: 2px 3px; border-radius: 4px; 
-    }
-
-       /* ===== Eレア豪華枠 ===== */
-    .card.enchanted {
-      box-shadow: 0 0 12px gold;
-      border-color: gold;
-    }
-
-    .card-stats-row {
-      display: flex;
-      justify-content: space-between;
-      margin: 2px 0;
-    }
-  </style>
-</head>
-<body>
-
-<!-- ====== メニュー ====== -->
-<div id="menuScreen" class="screen active">
-  <h1>Dream-seeker TCG</h1>
-  <div class="stone-bar">💎 <span id="stoneCount">0</span></div>
-  <button class="btn primary" onclick="openCpuConfig()">CPU戦</button>
-  <button class="btn" onclick="openRoomScreen()">ルーム戦（オンライン）</button>
-  <button class="btn" onclick="showShop()">ショップ</button>
-  <button class="btn" onclick="showPack()">パック</button>
-  <button class="btn" onclick="openDeckBuilder()">デッキ編集</button>
-  <button class="btn" onclick="openCollection()">カードファイル</button>
-</div>
-
-<!-- ====== CPU設定 ====== -->
-<div id="cpuScreen" class="screen">
-  <h2>CPU戦</h2>
-  <button class="btn small" onclick="startBattle()">CPU戦開始</button>
-  <button class="btn danger" onclick="showScreen('menu')">←戻る</button>
-</div>
-
-<!-- ====== バトル ====== -->
-<div id="battleScreen" class="screen">
-  <div id="cpuField"></div>
-  <div class="divider"></div>
-  <div id="playerField"></div>
-  <div id="playerHand"></div>
-
-  <div class="status-box">
-    ロア:<span id="playerLore">0</span> /
-    インク:<span id="playerInkCurrent">0</span>/<span id="playerInkMax">0</span>
-    <br>山札:<span id="playerDeck">0</span>
-    <div id="turnInfo"></div>
-    <button class="btn small" onclick="endTurn()">ターン終了</button>
-    <button class="btn small danger" onclick="endBattleToMenu()">メニューへ</button>
-  </div>
-
-  <div class="effect-box">
-    <div id="actionArea">キャラをタップすると行動選択</div>
-  </div>
-
-  <h3>ログ</h3>
-  <div id="log" class="log"></div>
-</div>
-
-<!-- ===== デッキ編集 ===== -->
-<div id="deckScreen" class="screen">
-  <h2>デッキ編集</h2>
-  <div id="deckCardList"></div>
-  <button class="btn primary" onclick="saveDeck()">保存</button>
-  <button class="btn danger" onclick="showScreen('menu')">戻る</button>
-</div>
-
-<!-- ===== カードファイル ===== -->
-<div id="collectionScreen" class="screen">
-  <h2>カードファイル</h2>
-  <div id="collectionList"></div>
-  <button class="btn danger" onclick="showScreen('menu')">戻る</button>
-</div>
-
-<!-- ===== パック ===== -->
-<div id="packScreen" class="screen">
-  <h2>パック</h2>
-  <button class="btn primary" onclick="openPack()">開封</button>
-  <p>💎<span id="packStoneCount">0</span></p>
-  <div id="packResult"></div>
-  <button class="btn danger" onclick="showScreen('menu')">戻る</button>
-</div>
-
-<!-- ===== ルーム戦 ===== -->
-<div id="roomScreen" class="screen">
-  <h2>ルーム戦（オンライン）</h2>
-  <button class="btn" onclick="createRoom()">ルーム作成</button>
-  <div>ID:<span id="roomIdDisplay">-</span></div>
-
-  <input id="joinRoomInput" placeholder="ルームID" class="btn" style="background:#111;">
-  <button class="btn" onclick="joinRoom()">参加</button>
-
-  <div id="roomInfoText">未参加</div>
-
-  <button class="btn small" onclick="setRoomReady(true)">準備OK</button>
-  <button class="btn small" onclick="setRoomReady(false)">準備解除</button>
-  <button class="btn small danger" onclick="leaveRoom()">退出</button>
-
-  <button class="btn primary" onclick="hostStartOnlineBattle()">開始（ホスト）</button>
-  <button class="btn danger" onclick="showScreen('menu')">←戻る</button>
-</div>
-
-<!-- ===== カード詳細 ===== -->
-<div id="cardDetailOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7);">
-  <div id="cardDetailInner" style="background:#333; margin:60px auto; padding:20px; width:320px; border-radius:10px;">
-    <div id="cardDetailContent"></div>
-    <button class="btn" onclick="closeCardDetail()">閉じる</button>
-  </div>
-</div>
-
-<script>
-/* ========== 特殊ID ========== */
-const ID_RATABAA = 14;
-const ID_PRETZEL = 16;
-const ID_ARIE    = 19;
-
-/* Eレア排出率 */
-const ENCHANTED_RATE = 1 / (288 * 5);
-
-/* ========== 必須：画面切り替え修正版 ========== */
-function showScreen(name) {
-  const list = [
-    "menuScreen","cpuScreen","battleScreen","shopScreen",
-    "packScreen","deckScreen","collectionScreen","roomScreen"
-  ];
-
-  list.forEach(id=>{
-    const el = document.getElementById(id);
-    if(el) el.classList.remove("active");
-  });
-
-  const map = {
-    menu:"menuScreen",
-    cpu:"cpuScreen",
-    battle:"battleScreen",
-    shop:"shopScreen",
-    pack:"packScreen",
-    deck:"deckScreen",
-    collection:"collectionScreen",
-    room:"roomScreen"
+    player: { deck:playerDeck, hand:[], field:[], inkCurrent:0, inkMax:0, lore:0 },
+    cpu:    { deck:cpuDeck,    hand:[], field:[], inkCurrent:0, inkMax:0, lore:0 }
   };
 
-  const target = map[name];
-  if(target){
-    document.getElementById(target).classList.add("active");
+  document.getElementById("log").innerHTML="";
+
+  // ★ 初期手札：7枚
+  for(let i=0;i<7;i++){
+    drawCardFor("player");
+    drawCardFor("cpu");
+  }
+
+  showScreen("battle");
+  addLog("バトル開始！");
+  startPlayerTurn(true);
+}
+
+/* ========== ターン処理 ========= */
+function startPlayerTurn(isFirst){
+  if(!battle) return;
+  if(!isFirst) battle.turnCount++;
+  else battle.turnCount=1;
+
+  battle.currentPlayer="player";
+  battle.normalDrawUsed=false;
+  battle.inkPlaysUsed.player=0;
+
+  // ターン開始：インクは全回復（使える状態に戻る）
+  battle.player.inkCurrent = battle.player.inkMax;
+
+  // アンレスト＆凍結解除
+  battle.player.field.forEach(c=>{ c.rest=false; if(c.frozen) c.frozen=false; });
+
+  // ★ 先行（プレイヤー）1ターン目はノードロー
+  if(battle.turnCount!==1){
+    // 通常ドローを「ターン開始で消費」
+    drawCardFor("player");
+    battle.normalDrawUsed=true;
+    addLog("自分はターン開始時に1枚ドローした。");
+  } else {
+    addLog("先行1ターン目のためドローは行われない。");
+  }
+
+  addLog(`=== 自分のターン ${battle.turnCount} ===`);
+  updateBattleUI();
+}
+
+function startCpuTurn(){
+  if(!battle) return;
+  battle.currentPlayer="cpu";
+  battle.inkPlaysUsed.cpu=0;
+  battle.normalDrawUsed=false;
+
+  battle.cpu.inkCurrent = battle.cpu.inkMax;
+  battle.cpu.field.forEach(c=>{ c.rest=false; if(c.frozen) c.frozen=false; });
+
+  // CPUは後攻なので turnCount==1 でもドローしてOK（あなたの固定ルールに矛盾が出る場合は言って）
+  // 今回は「先行のみ1Tノードロー」扱いで実装
+  drawCardFor("cpu");
+  battle.normalDrawUsed=true;
+  addLog("相手はターン開始時に1枚ドローした。");
+
+  addLog(`=== 相手のターン ${battle.turnCount} ===`);
+  cpuDoTurn();
+}
+
+/* ===== プレイヤー：通常ドロー（1T1回まで） ===== */
+function playerDraw(){
+  if(!battle) return;
+  if(battle.currentPlayer!=="player"){ alert("今は自分のターンではありません"); return; }
+  if(battle.normalDrawUsed){ alert("このターンはすでに通常ドロー済みです（2枚目以降は効果のみ）"); return; }
+  drawCardFor("player");
+  battle.normalDrawUsed=true;
+  addLog("自分はドローボタンで1枚ドローした。");
+  updateBattleUI();
+}
+
+/* ===== ターン終了 ===== */
+function endTurn(){
+  if(!battle || battle.currentPlayer!=="player") return;
+  addLog("自分はターンを終了した。");
+  updateBattleUI();
+  startCpuTurn();
+}
+
+function endBattleToMenu(){ battle=null; showScreen("menu"); }
+
+/* ========== インクにする（手札から） ========= */
+function canInkCard(card){ return !!card?.inkable; }
+
+function tryInkFromHand(handIndex){
+  if(!battle) return;
+  if(battle.currentPlayer!=="player") return;
+
+  const card=battle.player.hand[handIndex];
+  if(!card) return;
+
+  const limit = inkPlaysLimit("player");
+  if(battle.inkPlaysUsed.player >= limit){
+    alert(`このターンはこれ以上インクを置けません（上限 ${limit}）`);
+    return;
+  }
+
+  if(!canInkCard(card)){
+    alert("このカードはコスト化不可（×）です。※効果で置く場合は別処理");
+    return;
+  }
+
+  // 手札からインクへ（即時使用可）
+  battle.player.hand.splice(handIndex,1);
+  battle.player.inkMax += 1;
+  battle.player.inkCurrent += 1;
+  battle.inkPlaysUsed.player += 1;
+
+  addLog(`自分は「${card.name}」をインクに置いた。（インク ${battle.player.inkCurrent}/${battle.player.inkMax}）`);
+  updateBattleUI();
+}
+
+/* ========== シーク（ロア獲得＝カードのlore） ========= */
+function doSeek(fieldIndex){
+  if(!battle) return;
+  if(battle.currentPlayer!=="player") return;
+  const card=battle.player.field[fieldIndex];
+  if(!card || !canSeekOrSing(card)) { alert("このキャラは今シークできません"); return; }
+
+  card.rest=true;
+  battle.player.lore += card.lore;
+  addLog(`自分の「${card.name}」がシークし、ロア+${card.lore}（計${battle.player.lore}）`);
+  updateBattleUI();
+  checkWin();
+}
+
+/* ========== チャレンジ（対象はレストしているキャラのみ） ========= */
+function listRestedTargets(side){
+  const field = battle?.[side]?.field || [];
+  const result=[];
+  field.forEach((c,i)=>{ if(c.type==="character" && c.rest) result.push({idx:i, card:c}); });
+  return result;
+}
+
+function doChallenge(attackerIdx){
+  if(!battle) return;
+  if(battle.currentPlayer!=="player") return;
+
+  const attacker=battle.player.field[attackerIdx];
+  if(!attacker || !canCharacterAttack(attacker)){ alert("このキャラはチャレンジできません"); return; }
+
+  const targets = listRestedTargets("cpu");
+  if(targets.length===0){ alert("相手にレストしているキャラがいないためチャレンジできません"); return; }
+
+  let msg="チャレンジ対象（レスト中）を番号で選んでください\n";
+  targets.forEach((t,n)=>{ msg += `${n}: ${t.card.name} (ATK:${t.card.atk} HP:${t.card.hp}/${t.card.maxHp})\n`; });
+  const pick = prompt(msg, "0");
+  if(pick===null) return;
+  const n=parseInt(pick,10);
+  if(Number.isNaN(n) || n<0 || n>=targets.length){ alert("選択が不正"); return; }
+  resolveCombat("player", attackerIdx, targets[n].idx);
+  updateBattleUI();
+  checkWin();
+}
+
+function resolveCombat(attackerSide, attackerIndex, defenderIndex){
+  const atkSide=battle[attackerSide];
+  const defSide = attackerSide==="player" ? battle.cpu : battle.player;
+
+  const attacker=atkSide.field[attackerIndex];
+  const defender=defSide.field[defenderIndex];
+  if(!attacker || !defender) return;
+
+  // 対象制限：キャラはレストしてるもののみ
+  if(defender.type==="character" && !defender.rest){
+    if(attackerSide==="player") alert("相手がレストしていないためチャレンジできません");
+    return;
+  }
+
+  if(attackerSide==="player" && !canCharacterAttack(attacker)){
+    alert("このキャラはチャレンジできません");
+    return;
+  }
+
+  addLog(`${sideLabel(attackerSide)}の「${attacker.name}」が${sideLabel(attackerSide==="player"?"cpu":"player")}の「${defender.name}」にチャレンジ！`);
+
+  defender.hp -= attacker.atk;
+  attacker.hp -= defender.atk;
+
+  // チャレンジしたらレスト
+  attacker.rest=true;
+
+  if(defender.hp<=0){ addLog(`「${defender.name}」は退場した。`); defSide.field.splice(defenderIndex,1); }
+  if(attacker.hp<=0){ addLog(`「${attacker.name}」は退場した。`); atkSide.field.splice(attackerIndex,1); }
+}
+
+/* ========== 召喚 ========= */
+function playPlayerCharacter(handIndex){
+  if(!battle) return;
+  if(battle.currentPlayer!=="player") return;
+  const card=battle.player.hand[handIndex];
+  if(!card || card.type!=="character") return;
+
+  if(battle.player.inkCurrent < card.cost){ alert("インクが足りません"); return; }
+
+  battle.player.inkCurrent -= card.cost;
+  battle.player.hand.splice(handIndex,1);
+  card.rest=false; card.frozen=false; card.summonTurn=battle.turnCount;
+  battle.player.field.push(card);
+
+  addLog(`自分は「${card.name}」を召喚した。`);
+  updateBattleUI();
+}
+
+/* ========== ソング（最低限：支払い or 歌う） ========= */
+function listSingersForSong(side, songCard){
+  const f = battle?.[side]?.field || [];
+  const result=[];
+  f.forEach((c,i)=>{
+    if(c.type!=="character") return;
+    if(!canSeekOrSing(c)) return; // 召喚酔い/レスト/凍結は不可
+    // ルール：ロアではなく「コストが同等以上」
+    if(c.cost >= songCard.cost) result.push({idx:i, card:c});
+    // 歌声（songPower）がある場合は上限を拡張
+    else if((c.songPower||0) >= songCard.cost) result.push({idx:i, card:c});
+  });
+  return result;
+}
+
+function playPlayerSong(handIndex){
+  if(!battle) return;
+  if(battle.currentPlayer!=="player") return;
+  const song=battle.player.hand[handIndex];
+  if(!song || song.type!=="song") return;
+
+  const singers = listSingersForSong("player", song);
+
+  // 選択：インク支払い か 歌う
+  let msg = `ソング「${song.name}」（コスト${song.cost}）\n`;
+  msg += `0: インクで支払って使用\n`;
+  singers.forEach((s,n)=>{ msg += `${n+1}: 「${s.card.name}」で歌う（インク不要／そのキャラはレスト）\n`; });
+  const pick = prompt(msg, "0");
+  if(pick===null) return;
+  const n=parseInt(pick,10);
+  if(Number.isNaN(n) || n<0 || n> singers.length){ alert("選択が不正"); return; }
+
+  if(n===0){
+    if(battle.player.inkCurrent < song.cost){ alert("インクが足りません"); return; }
+    battle.player.inkCurrent -= song.cost;
+    battle.player.hand.splice(handIndex,1);
+    addLog(`自分はソング「${song.name}」をインクで使用した。（効果は今後拡張）`);
+  } else {
+    const singer = singers[n-1];
+    if(!singer) return;
+    // 歌う → 歌ったキャラがレスト、インク不使用
+    battle.player.field[singer.idx].rest=true;
+    battle.player.hand.splice(handIndex,1);
+    addLog(`自分は「${singer.card.name}」でソング「${song.name}」を歌った。（効果は今後拡張）`);
+  }
+  updateBattleUI();
+}
+
+/* ========== CPU行動（レスト対象がいないと殴れない） ========= */
+function cpuDoTurn(){
+  if(!battle) return;
+  const cpu=battle.cpu;
+  const me=battle.player;
+
+  // 1) インク置き（可能なら1枚）
+  const limit = inkPlaysLimit("cpu");
+  if(battle.inkPlaysUsed.cpu < limit){
+    const idx = cpu.hand.findIndex(c=>c.inkable);
+    if(idx>=0){
+      cpu.hand.splice(idx,1);
+      cpu.inkMax += 1;
+      cpu.inkCurrent += 1;
+      battle.inkPlaysUsed.cpu += 1;
+      addLog("相手は手札を1枚インクに置いた。");
+    }
+  }
+
+  // 2) 召喚できるだけ召喚
+  let loop=true;
+  while(loop){
+    loop=false;
+    for(let i=0;i<cpu.hand.length;i++){
+      const c=cpu.hand[i];
+      if(c.type==="character" && c.cost<=cpu.inkCurrent){
+        cpu.inkCurrent -= c.cost;
+        cpu.hand.splice(i,1);
+        c.rest=false; c.summonTurn=battle.turnCount;
+        cpu.field.push(c);
+        addLog(`相手は「${c.name}」を召喚した。`);
+        loop=true;
+        break;
+      }
+    }
+  }
+
+  // 3) 行動：殴れるなら「レストしている相手」だけ殴る、いないならシーク
+  cpu.field.forEach((card, idx)=>{
+    if(!canCharacterAttack(card) && !canSeekOrSing(card)) return;
+
+    const restedTargets = listRestedTargets("player");
+    if(canCharacterAttack(card) && restedTargets.length>0 && card.atk>0){
+      const t = restedTargets[Math.floor(Math.random()*restedTargets.length)];
+      resolveCombat("cpu", idx, t.idx);
+      return;
+    }
+
+    if(canSeekOrSing(card) && card.lore>0){
+      card.rest=true;
+      cpu.lore += card.lore;
+      addLog(`相手の「${card.name}」がシークし、相手ロア+${card.lore}（計${cpu.lore}）`);
+    }
+  });
+
+  updateBattleUI();
+  if(checkWin()) return;
+
+  addLog("相手はターンを終了した。");
+  startPlayerTurn(false);
+}
+
+/* ========== クリック処理（手札：召喚/ソング/インク） ========= */
+function onPlayerHandCardClick(index){
+  if(!battle || battle.currentPlayer!=="player") return;
+  const card=battle.player.hand[index];
+  if(!card) return;
+
+  const actionArea=document.getElementById("actionArea");
+  let html=`<div>手札：「${card.name}」を選択中</div>`;
+
+  // インクにする（手札→インク）
+  const limit = inkPlaysLimit("player");
+  const canInk = canInkCard(card) && (battle.inkPlaysUsed.player < limit);
+  if(canInk){
+    html += `<button class="btn small" onclick="tryInkFromHand(${index})">インクにする（残り ${limit-battle.inkPlaysUsed.player}）</button>`;
+  } else {
+    html += `<div style="font-size:11px;opacity:0.8;">インク不可 or このターンの上限に達しました</div>`;
+  }
+
+  if(card.type==="character"){
+    html += `<button class="btn small" onclick="playPlayerCharacter(${index})">召喚（コスト${card.cost}）</button>`;
+  } else if(card.type==="song"){
+    html += `<button class="btn small" onclick="playPlayerSong(${index})">ソング使用（コスト${card.cost}）</button>`;
+  }
+
+  html += `<button class="btn small" onclick="showCardDetailFromBattle('player','hand',${index})">カード詳細</button>`;
+  actionArea.innerHTML=html;
+}
+
+function onPlayerFieldCardClick(index){
+  if(!battle) return;
+  const card=battle.player.field[index];
+  if(!card) return;
+
+  const actionArea=document.getElementById("actionArea");
+  let html=`<div>場：「${card.name}」を選択中</div>`;
+
+  if(battle.currentPlayer==="player"){
+    if(card.type==="character"){
+      if(canSeekOrSing(card) && card.lore>0){
+        html += `<button class="btn small" onclick="doSeek(${index})">シーク（ロア+${card.lore}）</button>`;
+      }
+      if(canCharacterAttack(card)){
+        const targets=listRestedTargets("cpu");
+        if(targets.length>0 && card.atk>0){
+          html += `<button class="btn small" onclick="doChallenge(${index})">チャレンジ（対象選択）</button>`;
+        } else {
+          html += `<div style="font-size:11px;opacity:0.8;">相手にレストしているキャラがいません</div>`;
+        }
+      } else {
+        html += `<div style="font-size:11px;opacity:0.8;">召喚酔い/レスト/凍結で行動不可</div>`;
+      }
+    }
+  }
+
+  html += `<button class="btn small" onclick="showCardDetailFromBattle('player','field',${index})">カード詳細</button>`;
+  actionArea.innerHTML=html;
+}
+
+function showCardDetailFromBattle(side, place, index){
+  if(!battle) return;
+  const card = (place==="hand") ? battle[side].hand[index] : battle[side].field[index];
+  if(card) showCardDetail(card);
+}
+
+/* ========== UI更新 ========= */
+function updateBattleUI(){
+  if(!battle) return;
+
+  document.getElementById("cpuHandCount").textContent = String(battle.cpu.hand.length);
+  document.getElementById("cLore").textContent = String(battle.cpu.lore);
+  document.getElementById("cDeck").textContent = String(battle.cpu.deck.length);
+
+  document.getElementById("playerLore").textContent = String(battle.player.lore);
+  document.getElementById("playerInkCurrent").textContent = String(battle.player.inkCurrent);
+  document.getElementById("playerInkMax").textContent = String(battle.player.inkMax);
+  document.getElementById("playerDeck").textContent = String(battle.player.deck.length);
+
+  document.getElementById("turnInfo").textContent = (battle.currentPlayer==="player") ? "自分のターン" : "相手のターン";
+
+  const cpuFieldEl=document.getElementById("cpuField");
+  cpuFieldEl.innerHTML="";
+  battle.cpu.field.forEach(card=>{
+    const wrap=document.createElement("div");
+    wrap.innerHTML=renderCardHtml(card);
+    cpuFieldEl.appendChild(wrap.firstElementChild);
+  });
+
+  const playerFieldEl=document.getElementById("playerField");
+  playerFieldEl.innerHTML="";
+  battle.player.field.forEach((card,idx)=>{
+    const wrap=document.createElement("div");
+    wrap.innerHTML=renderCardHtml(card);
+    const el=wrap.firstElementChild;
+    el.onclick=()=>onPlayerFieldCardClick(idx);
+    playerFieldEl.appendChild(el);
+  });
+
+  const playerHandEl=document.getElementById("playerHand");
+  playerHandEl.innerHTML="";
+  battle.player.hand.forEach((card,idx)=>{
+    const wrap=document.createElement("div");
+    wrap.innerHTML=renderCardHtml(card);
+    const el=wrap.firstElementChild;
+    el.onclick=()=>onPlayerHandCardClick(idx);
+    playerHandEl.appendChild(el);
+  });
+
+  // 行動欄：ターン/インク置き残りを軽く表示
+  const actionArea=document.getElementById("actionArea");
+  if(actionArea && (!actionArea.dataset.locked || actionArea.dataset.locked==="0")){
+    const lim=inkPlaysLimit("player");
+    actionArea.innerHTML = `
+      <div style="font-size:12px;opacity:0.9;">
+        通常ドロー: ${battle.normalDrawUsed ? "使用済" : "未使用"}<br>
+        インク置き: ${battle.inkPlaysUsed.player}/${lim}
+      </div>
+      <div style="font-size:12px;opacity:0.8;">カードをタップすると行動を選べます。</div>
+    `;
   }
 }
 
-/* ========== カード定義 ========== */
-const cards = [
-  {id:0, name:"カー", color:"red", type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N", inkable:true},
-  {id:1, name:"ルパプ", color:"purple", type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N", inkable:true},
-  {id:2, name:"ルブブ", color:"blue", type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N", inkable:true},
-  {id:6, name:"終焉の大火", color:"red", type:"song", cost:7, atk:0, hp:0, lore:0, rarity:"SR", inkable:false, effect:"boardwipe"},
-  {id:9, name:"タイタン", color:"red", type:"character", cost:5, atk:6, hp:5, lore:0, rarity:"SR", inkable:true, rush:true},
-  {id:8, name:"イフリート", color:"red", type:"character", cost:8, atk:5, hp:5, lore:4, rarity:"L", inkable:true},
-  {id:11, name:"ぐわぐわダック", color:"red", type:"character", cost:2, atk:2, hp:3, lore:1, rarity:"N", inkable:true},
-  {id:12, name:"ゴーズ", color:"blue", type:"character", cost:7, atk:3, hp:6, lore:2, rarity:"L", inkable:false},
-  {id:14, name:"らたばあ", color:"blue", type:"character", cost:1, atk:1, hp:1, lore:1, rarity:"N", inkable:true},
-  {id:16, name:"プレッツェル", color:"yellow", type:"character", cost:4, atk:1, hp:5, lore:2, rarity:"L", inkable:true},
-  {id:19, name:"アリエナイ", color:"yellow", type:"character", cost:3, atk:2, hp:3, lore:1, rarity:"SR", inkable:true}
-];
-
-/* ========== ローカル保存 ========== */
-let stones = 0;
-let collection = {};
-let enchantedCollection = {};
-let savedDecks = [[], [], []];
-let currentDeckIndex = 0;
-
-function loadData(){
-  stones = parseInt(localStorage.getItem("ds_stones")||"0");
-  collection = JSON.parse(localStorage.getItem("ds_collection")||"{}");
-  enchantedCollection = JSON.parse(localStorage.getItem("ds_collection_enchanted")||"{}");
-  const decks = JSON.parse(localStorage.getItem("ds_playerDecks")||"[]");
-  if(decks.length===3) savedDecks = decks;
-  updateStoneDisplays();
-}
-
-function saveStones(){ localStorage.setItem("ds_stones", stones); updateStoneDisplays(); }
-function saveCollection(){ localStorage.setItem("ds_collection", JSON.stringify(collection)); }
-function saveEnchantedCollection(){ localStorage.setItem("ds_collection_enchanted", JSON.stringify(enchantedCollection)); }
-function savePlayerDecks(){ localStorage.setItem("ds_playerDecks", JSON.stringify(savedDecks)); }
-
-function updateStoneDisplays(){
-  const ids = ["stoneCount","packStoneCount"];
-  ids.forEach(id=>{
-    const el = document.getElementById(id);
-    if(el) el.textContent = stones;
-  });
-}
-
-/* ========== Firebase ========== */
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
-let firebaseDb=null, currentRoomId=null, currentRoomRole=null, roomRef=null, roomListener=null;
-let onlineBattle=null, myOnlineSide=null, onlineBattleStarted=false, onlineBattleListener=null, commandListener=null;
-
-function initFirebase(){
-  try{
-    firebase.initializeApp(firebaseConfig);
-    firebaseDb = firebase.database();
-  }catch(e){ console.error(e); }
-}
-
-/* ===== ルーム戦（基本はあなたのコードを維持） ===== */
-
-function openRoomScreen(){ showScreen("room"); updateRoomInfoText(); }
-function randomRoomId(){ return String(Math.floor(1000+Math.random()*9000)); }
-
-function createRoom(){
-  if(!firebaseDb){ alert("Firebase未設定"); return; }
-  const id = randomRoomId();
-  const ref = firebaseDb.ref("rooms/"+id);
-  ref.set({
-    createdAt:Date.now(),
-    hostReady:false,
-    guestReady:false,
-    battleStarted:false
-  });
-  currentRoomId=id; currentRoomRole="host"; roomRef=ref;
-  document.getElementById("roomIdDisplay").textContent=id;
-  updateRoomInfoText();
-}
-
-/* …………… ここから先はあなたが送ったオンライン処理そのまま保持 ………… */
-
-/* ===== 省略（非常に長いので元のコードを維持しつつ動作安定化） ===== */
-
-/* ※ 必要なら、この続きのオンライン処理部分を“全部展開した完全版”を送ることも可能 */
-
-window.onload = ()=>{
+/* ========== 初期化 ========= */
+window.addEventListener("load", ()=>{
   loadData();
   initFirebase();
-  showScreen("menu");
-};
+});
 </script>
-
 </body>
 </html>
-
