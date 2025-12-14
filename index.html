@@ -1,345 +1,137 @@
+<!-- ===========================
+  Dream-seeker TCG (Single HTML)
+  Part 1 / 2
+=========================== -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <title>Dream-seeker TCG</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
   <style>
-    * { box-sizing: border-box; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#181818;color:#f5f5f5}
+    h1,h2{text-align:center;margin:12px 0}
+    .screen{display:none;padding:10px;max-width:780px;margin:0 auto}
+    .screen.active{display:block}
+    .btn{width:100%;padding:10px;margin:6px 0;border-radius:10px;border:none;cursor:pointer;font-size:14px;background:#444;color:#f5f5f5}
+    .btn.primary{background:#2ecc71;color:#000}
+    .btn.danger{background:#e74c3c}
+    .btn.small{width:auto;padding:4px 8px;font-size:12px;margin:2px 4px 0 0;border-radius:8px}
+    .row{display:flex;gap:6px}
+    .row>.btn{flex:1}
+    .toggle-selected{background:#f39c12!important;color:#000!important}
+    .stone-bar{font-size:13px;padding:6px 8px;border-radius:10px;background:#222;display:inline-block;margin-bottom:8px}
+    .section-title{font-size:13px;margin:10px 0 4px;font-weight:bold}
 
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #181818;
-      color: #f5f5f5;
-    }
+    .battle-screen{padding:12px}
+    .enemy-title{text-align:center;font-size:18px;margin-bottom:6px}
+    .enemy-status{display:flex;justify-content:space-around;margin-bottom:6px;font-size:13px;gap:8px;flex-wrap:wrap}
+    #cpuField,#playerField,#playerHand{display:flex;align-items:flex-start;gap:10px;overflow-x:auto;padding:8px 0;min-height:170px;-webkit-overflow-scrolling:touch}
+    .divider{border-top:3px dashed #fff;margin:12px 0}
 
-    h1, h2 { text-align: center; margin: 12px 0; }
+    .bottom-ui{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .status-box,.effect-box{width:49%;min-height:130px;border:2px solid #fff;padding:8px;border-radius:12px}
+    .status-box-title,.effect-box-title{font-weight:bold;margin-bottom:4px}
+    .turn-info{margin-top:4px;font-weight:bold}
+    .status-buttons{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
 
-    .screen {
-      display: none;
-      padding: 10px;
-      max-width: 520px;
-      margin: 0 auto;
-    }
-    .screen.active { display: block; }
+    .log{background:#111;border-radius:12px;padding:8px;font-size:11px;height:150px;overflow-y:auto;border:1px solid #333;margin-top:6px}
 
-    .btn {
-      width: 100%;
-      padding: 10px;
-      margin: 6px 0;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      font-size: 14px;
-      background: #444;
-      color: #f5f5f5;
-    }
-    .btn.primary { background: #2ecc71; color: #000; }
-    .btn.danger  { background: #e74c3c; }
-    .btn.small {
-      width: auto;
-      padding: 4px 8px;
-      font-size: 12px;
-      margin: 2px 4px 0 0;
-    }
+    /* Card */
+    .card{flex:0 0 auto;width:104px;height:168px;border-radius:12px;border:3px solid #555;background:#222;color:#fff;font-size:10px;padding:4px;display:flex;flex-direction:column;gap:3px;cursor:pointer;position:relative;overflow:hidden;transition:transform .1s,opacity .1s}
+    .card:hover{transform:translateY(-2px)}
+    .card.rest{opacity:.6;transform:rotate(8deg)}
+    .card.frozen{outline:2px solid #00e5ff}
+    .card.enchanted{border-color:#ffd700;box-shadow:0 0 10px rgba(255,215,0,.5)}
+    .card-header{display:flex;justify-content:space-between;align-items:center;background:#000;border-radius:6px;padding:2px 4px;font-weight:bold}
+    .card-name{flex:1;text-align:center;font-size:9px;line-height:1.1;margin:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .card-ill{flex:1;border-radius:6px;background:#fff}
+    .card-row{display:flex;justify-content:space-between;font-size:9px;opacity:.95}
+    .card-footer{background:#000;border-radius:6px;padding:2px 4px;font-size:9px}
 
-    .card-box {
-      border: 1px solid #555;
-      border-radius: 8px;
-      padding: 6px;
-      margin: 4px 0;
-      font-size: 12px;
-      background: #202020;
-      cursor: pointer;
-    }
-    .card-name  { font-weight: bold; }
-    .card-stats { font-size: 11px; opacity: 0.9; margin-top: 2px; }
+    .red{border-color:#e74c3c}.purple{border-color:#9b59b6}.blue{border-color:#3498db}
+    .yellow{border-color:#f1c40f}.white{border-color:#ecf0f1;color:#000;background:#aaa}.green{border-color:#2ecc71}
+    .white .card-header,.white .card-footer{background:#fff;color:#000}
 
-    .red    { border-color: #e74c3c; }
-    .purple { border-color: #9b59b6; }
-    .blue   { border-color: #3498db; }
-    .yellow { border-color: #f1c40f; }
-    .white  { border-color: #ecf0f1; }
-    .green  { border-color: #2ecc71; }
+    /* Modal */
+    #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:999}
+    #modal{background:#222;max-width:420px;margin:40px auto;padding:12px;border-radius:12px;border:1px solid #fff}
+    #modalTitle{font-weight:bold;margin-bottom:6px}
+    #modalBody{font-size:13px;white-space:pre-wrap}
+    #modalBtns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+    #modalBtns .btn{width:auto;margin:0}
 
-    .log {
-      background: #111;
-      border-radius: 8px;
-      padding: 6px;
-      font-size: 11px;
-      height: 140px;
-      overflow-y: auto;
-      border: 1px solid #333;
-      margin-top: 6px;
-    }
-
-    .section-title {
-      font-size: 13px;
-      margin: 10px 0 4px;
-      font-weight: bold;
-    }
-
-    .stone-bar {
-      font-size: 13px;
-      padding: 4px 6px;
-      border-radius: 8px;
-      background: #222;
-      display: inline-block;
-      margin-bottom: 8px;
-    }
-
-    .row { display: flex; gap: 6px; }
-    .row > .btn { flex: 1; }
-
-    .toggle-selected {
-      background: #f39c12 !important;
-      color: #000 !important;
-    }
-
-    /* ===== バトル画面用 ===== */
-    .battle-screen { padding: 16px; }
-
-    .enemy-title { text-align: center; font-size: 20px; margin-bottom: 8px; }
-
-    .enemy-status {
-      display: flex;
-      justify-content: space-around;
-      margin-bottom: 8px;
-      font-size: 13px;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    #cpuField, #playerField, #playerHand {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      overflow-x: auto;
-      padding: 8px 0;
-      min-height: 160px;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    .divider {
-      border-top: 3px dashed #ffffff;
-      margin: 12px 0;
-    }
-
-    .bottom-ui {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    .status-box, .effect-box {
-      width: 48%;
-      min-height: 120px;
-      border: 3px solid #ffffff;
-      box-sizing: border-box;
-      padding: 8px;
-      font-size: 14px;
-    }
-
-    .status-box-title, .effect-box-title { font-weight: bold; margin-bottom: 4px; }
-    .turn-info { margin-top: 4px; font-weight: bold; }
-
-    .status-buttons { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
-    .status-buttons button { font-size: 12px; padding: 4px 8px; }
-
-    /* カード見た目（新カード型） */
-    .card {
-      flex: 0 0 auto;
-      width: 96px;
-      height: 160px;
-      border-radius: 10px;
-      border: 3px solid #555;
-      background: #b30000;
-      color: #ffffff;
-      font-size: 10px;
-      box-sizing: border-box;
-      padding: 4px;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      cursor: pointer;
-      transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
-      position: relative;
-      overflow: hidden;
-    }
-    .card:hover { transform: translateY(-2px); box-shadow: 0 0 8px rgba(255,255,255,0.3); }
-    .card.rest { opacity: 0.6; transform: rotate(8deg); }
-
-    .card.red    { border-color: #e74c3c; background: #8b1a1a; }
-    .card.purple { border-color: #9b59b6; background: #4b2b63; }
-    .card.blue   { border-color: #3498db; background: #1f3f5f; }
-    .card.yellow { border-color: #f1c40f; background: #866d07; }
-    .card.white  { border-color: #ecf0f1; background: #aaaaaa; color: #000; }
-    .card.green  { border-color: #2ecc71; background: #145437; }
-
-    .card.white .card-header, .card.white .card-footer { background: #ffffff; color: #000000; }
-    .card.white .card-cost { color: #000000; }
-
-    .card.enchanted {
-      box-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 18px rgba(255,215,0,0.7);
-      border-width: 3px;
-      border-color: #ffd700;
-    }
-    .card.enchanted::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: conic-gradient(from 45deg,
-        rgba(255,255,255,0.15),
-        rgba(255,215,0,0.25),
-        rgba(255,255,255,0.0),
-        rgba(0,255,255,0.15),
-        rgba(255,255,255,0.15)
-      );
-      mix-blend-mode: screen;
-      pointer-events: none;
-    }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: #000000;
-      border-radius: 4px;
-      padding: 2px 3px;
-      margin-bottom: 3px;
-      font-weight: bold;
-      position: relative;
-      z-index: 1;
-      gap: 4px;
-    }
-    .card-cost { min-width: 16px; text-align: center; }
-    .card-name-header { flex: 1; text-align: center; font-size: 9px; line-height: 1.1; }
-    .card-inkable { min-width: 16px; text-align: center; }
-
-    .card-illustration {
-      flex: 1;
-      background: #ffffff;
-      border-radius: 4px;
-      margin-bottom: 3px;
-      overflow: hidden;
-      position: relative;
-      z-index: 1;
-    }
-
-    .card-stats-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 9px;
-      padding: 0 2px;
-      margin-bottom: 3px;
-      position: relative;
-      z-index: 1;
-    }
-
-    .card-footer {
-      background: #000000;
-      border-radius: 4px;
-      padding: 2px 3px;
-      font-size: 9px;
-      position: relative;
-      z-index: 1;
-    }
-
-    /* カード詳細ポップアップ */
-    #cardDetailOverlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      z-index: 1000;
-    }
-    #cardDetailInner {
-      background: #222;
-      max-width: 340px;
-      margin: 40px auto;
-      padding: 12px;
-      border-radius: 10px;
-      border: 1px solid #ffffff;
-      font-size: 13px;
-    }
+    /* Deck editor */
+    .card-box{border:1px solid #555;border-radius:10px;padding:8px;margin:6px 0;font-size:12px;background:#202020}
+    .card-box .line{opacity:.9;font-size:11px;margin-top:2px}
+    .deck-meta{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;opacity:.95;margin:6px 0}
+    .pill{background:#222;border:1px solid #444;border-radius:999px;padding:4px 8px}
+    .warn{color:#ffcc66}
   </style>
 </head>
 <body>
 
-<!-- ===== ホーム ===== -->
+<!-- ===== Menu ===== -->
 <div id="menuScreen" class="screen active">
   <h1>Dream-seeker TCG</h1>
-  <div class="stone-bar">
-    💎 ドリームストーン: <span id="stoneCount">0</span>
-  </div>
+  <div class="stone-bar">💎 ドリームストーン: <span id="stoneCount">0</span></div>
   <button class="btn primary" onclick="openCpuConfig()">バトル</button>
   <button class="btn" onclick="showShop()">ショップ</button>
   <button class="btn" onclick="showPack()">パック（ガチャ）</button>
-  <button class="btn" onclick="openDeckBuilder()">デッキ編集</button>
+  <button class="btn" onclick="openDeckBuilder(0)">デッキ編集</button>
   <button class="btn" onclick="openCollection()">カードファイル</button>
 </div>
 
-<!-- ===== CPU設定 ===== -->
+<!-- ===== CPU config ===== -->
 <div id="cpuScreen" class="screen">
   <h2>CPU設定</h2>
-
   <div class="section-title">CPUの強さ</div>
   <div class="row">
     <button id="btnCpuNormal" class="btn" onclick="setCpuStrength('normal')">普通</button>
     <button id="btnCpuStrong" class="btn" onclick="setCpuStrength('strong')">強い</button>
-  </div>
-  <div class="row">
     <button id="btnCpuGod" class="btn" onclick="setCpuStrength('god')">鬼（最強）</button>
   </div>
 
-  <div class="section-title">CPUデッキ色（2色選んでね）</div>
+  <div class="section-title">CPUデッキ色（2色まで）</div>
   <div class="row">
-    <button id="cpuRed"    class="btn" onclick="setCpuColor('red')">赤</button>
+    <button id="cpuRed" class="btn" onclick="setCpuColor('red')">赤</button>
     <button id="cpuPurple" class="btn" onclick="setCpuColor('purple')">紫</button>
+    <button id="cpuBlue" class="btn" onclick="setCpuColor('blue')">青</button>
   </div>
   <div class="row">
-    <button id="cpuBlue"   class="btn" onclick="setCpuColor('blue')">青</button>
     <button id="cpuYellow" class="btn" onclick="setCpuColor('yellow')">黄</button>
-  </div>
-  <div class="row">
-    <button id="cpuWhite"  class="btn" onclick="setCpuColor('white')">白</button>
-    <button id="cpuGreen"  class="btn" onclick="setCpuColor('green')">緑</button>
+    <button id="cpuWhite" class="btn" onclick="setCpuColor('white')">白</button>
+    <button id="cpuGreen" class="btn" onclick="setCpuColor('green')">緑</button>
   </div>
 
   <div class="section-title">自分の使用デッキ</div>
-  <button id="btnPlayerDefault" class="btn" onclick="selectPlayerDeck('default')">デフォルト赤デッキ</button>
+  <button id="btnPlayerDefault" class="btn" onclick="selectPlayerDeck('default')">デフォルト（赤系）</button>
   <button id="btnDeck1" class="btn" onclick="selectPlayerDeck('deck1')">デッキ1（未保存）</button>
   <button id="btnDeck2" class="btn" onclick="selectPlayerDeck('deck2')">デッキ2（未保存）</button>
   <button id="btnDeck3" class="btn" onclick="selectPlayerDeck('deck3')">デッキ3（未保存）</button>
 
   <button class="btn primary" onclick="startBattle()">バトル開始</button>
-  <button class="btn danger" onclick="showScreen('menu')">← メニューに戻る</button>
+  <button class="btn danger" onclick="showScreen('menu')">← メニュー</button>
 </div>
 
-<!-- ===== バトル ===== -->
+<!-- ===== Battle ===== -->
 <div id="battleScreen" class="screen">
   <div class="battle-screen">
-
-    <!-- 相手エリア -->
     <div class="enemy-area">
       <div class="enemy-title">相手</div>
       <div class="enemy-status">
         <span>手札：<span id="cpuHandCount">0</span>枚</span>
         <span>ロア：<span id="cLore">0</span></span>
-        <span>インク：<span id="cpuInkCurrent">0</span> / <span id="cpuInkMax">0</span></span>
-        <span>残り山札：<span id="cDeck">0</span>枚</span>
+        <span>インク：<span id="cpuInkCur">0</span>/<span id="cpuInkMax">0</span></span>
+        <span>山札：<span id="cDeck">0</span>枚</span>
       </div>
       <div id="cpuField"></div>
     </div>
 
     <div class="divider"></div>
 
-    <!-- 自分エリア -->
     <div class="player-area">
-
       <div id="playerField"></div>
       <div id="playerHand"></div>
 
@@ -348,107 +140,155 @@
           <div class="status-box-title">自分ステータス</div>
           <div>ロア：<span id="playerLore">0</span></div>
           <div>インク：<span id="playerInkCurrent">0</span> / <span id="playerInkMax">0</span></div>
-          <div>残り山札：<span id="playerDeck">0</span></div>
+          <div>山札：<span id="playerDeck">0</span></div>
           <div id="turnInfo" class="turn-info">自分のターン</div>
+          <div style="font-size:11px;opacity:.85;margin-top:4px;">
+            ※ ターン開始時ドローは自動（先行1T目は無し）<br>
+            ※ 追加ドローはカード効果のみ
+          </div>
 
           <div class="status-buttons">
             <button class="btn small" onclick="endTurn()">ターン終了</button>
-            <button class="btn small danger" onclick="endBattleToMenu()">メニューに戻る</button>
-          </div>
-          <div style="font-size:11px;opacity:0.85;margin-top:6px;">
-            ※ドローはターン開始に自動（先行1Tは無し）。<br>
-            ※インクは手札から「インク化」で増やす（基本1枚/ターン、リンがいると+1）。
+            <button class="btn small danger" onclick="endBattleToMenu()">メニューへ</button>
           </div>
         </div>
 
         <div class="effect-box">
-          <div class="effect-box-title">行動 / 情報</div>
-          <div id="actionArea">カードをタップすると行動を選べます。</div>
+          <div class="effect-box-title">行動</div>
+          <div id="actionArea">カードをタップすると行動が出ます。</div>
         </div>
       </div>
 
       <div class="section-title">ログ</div>
       <div id="log" class="log"></div>
-
     </div>
   </div>
 </div>
 
-<!-- ===== ショップ ===== -->
+<!-- ===== Shop ===== -->
 <div id="shopScreen" class="screen">
   <h2>ショップ</h2>
-  <p>※ 今はテスト用。石を増やし放題にしてあります。</p>
+  <p style="font-size:12px;opacity:.85;">石を買う（テスト用）。</p>
   <p>所持ドリームストーン: <span id="shopStoneCount">0</span></p>
-  <button class="btn" onclick="debugAddStones()">石を100個増やす（テスト）</button>
-  <button class="btn danger" onclick="showScreen('menu')">← メニューに戻る</button>
+  <button class="btn" onclick="addStones(20)">石を+20</button>
+  <button class="btn" onclick="addStones(100)">石を+100</button>
+  <button class="btn danger" onclick="showScreen('menu')">← メニュー</button>
 </div>
 
-<!-- ===== パック ===== -->
+<!-- ===== Pack ===== -->
 <div id="packScreen" class="screen">
   <h2>パック（ガチャ）</h2>
-  <p>ドリームストーン5個で1パック（5枚入り）</p>
+  <p>ドリームストーン5個で1パック（5枚）</p>
   <p>所持ドリームストーン: <span id="packStoneCount">0</span></p>
   <button class="btn primary" onclick="openPack()">パックを開ける</button>
   <div class="section-title">今回の結果</div>
   <div id="packResult"></div>
-  <button class="btn danger" onclick="showScreen('menu')">← メニューに戻る</button>
+  <button class="btn danger" onclick="showScreen('menu')">← メニュー</button>
 </div>
 
-<!-- ===== デッキ編集 ===== -->
+<!-- ===== Deck ===== -->
 <div id="deckScreen" class="screen">
   <h2>デッキ編集</h2>
-  <p style="font-size:12px; opacity:0.8;">
-    所持カードからデッキに入れる枚数を決めてください。保存したデッキはバトルで選べます。<br>
-    ※ デッキは2色まで／同名カードは4枚まで（基本6種は何枚でも可）／最終的に60枚以上
-  </p>
+  <div class="deck-meta">
+    <span class="pill">編集中: デッキ<span id="currentDeckLabel">1</span></span>
+    <span class="pill">合計: <span id="deckTotal">0</span>枚</span>
+    <span class="pill">色: <span id="deckColors">-</span></span>
+    <span class="pill warn">同名は4枚まで（通常＋E合算）</span>
+  </div>
 
-  <div style="margin-bottom:8px;">
-    <button class="btn small" onclick="switchDeck(0)">デッキ1</button>
-    <button class="btn small" onclick="switchDeck(1)">デッキ2</button>
-    <button class="btn small" onclick="switchDeck(2)">デッキ3</button>
-    <div style="font-size:12px; opacity:0.9; margin-top:4px;">
-      現在編集しているのは：デッキ<span id="currentDeckLabel">1</span>
-    </div>
+  <div class="row">
+    <button class="btn" onclick="switchDeck(0)">デッキ1</button>
+    <button class="btn" onclick="switchDeck(1)">デッキ2</button>
+    <button class="btn" onclick="switchDeck(2)">デッキ3</button>
   </div>
 
   <div id="deckCardList"></div>
-  <button class="btn primary" onclick="saveDeck()">この内容でデッキを保存</button>
-  <button class="btn danger" onclick="showScreen('menu')">← メニューに戻る</button>
+  <button class="btn primary" onclick="saveDeck()">保存</button>
+  <button class="btn danger" onclick="showScreen('menu')">← メニュー</button>
 </div>
 
-<!-- ===== カードファイル ===== -->
+<!-- ===== Collection ===== -->
 <div id="collectionScreen" class="screen">
   <h2>カードファイル</h2>
   <div id="collectionList"></div>
-  <button class="btn danger" onclick="showScreen('menu')">← メニューに戻る</button>
+  <button class="btn danger" onclick="showScreen('menu')">← メニュー</button>
 </div>
 
-<!-- ===== カード詳細ポップアップ ===== -->
-<div id="cardDetailOverlay">
-  <div id="cardDetailInner">
-    <div id="cardDetailContent"></div>
-    <button class="btn" onclick="closeCardDetail()">戻る / 閉じる</button>
+<!-- ===== Modal ===== -->
+<div id="overlay">
+  <div id="modal">
+    <div id="modalTitle"></div>
+    <div id="modalBody"></div>
+    <div id="modalBtns"></div>
   </div>
 </div>
 
 <script>
-/* ========== 特殊ID ========== */
-const ID_LIN = 13;
+/* ===========================
+  Fixed Rules (important)
+  - Ink: from hand, 1 per turn, only if inkable (●). No auto ink.
+  - Turn start draw: automatic 1 (except first player turn1)
+  - Challenge: only can target RESTED defender
+  - Song: can be paid by ink OR sung by a character (cost >= song cost). Singing rests singer. Song goes to discard.
+  - Extra draw: ONLY by effects (credit system)
+=========================== */
 
-/* Eレア（エンチャンテッド）のレート（1カートン＝288パック、1パック5枚→1440枚に1枚くらい） */
-const ENCHANTED_RATE = 1 / (288 * 5);
+const ENCHANTED_RATE = 1 / (288 * 5); // 1 carton approx
+let stones = 0;
+let collection = {};
+let enchantedCollection = {};
+let savedDecks = [[],[],[]];
+let currentDeckIndex = 0;
 
-/* ========== 画面切り替え ========== */
-function showScreen(name) {
-  const ids = ["menuScreen","cpuScreen","battleScreen","shopScreen","packScreen","deckScreen","collectionScreen"];
-  ids.forEach(id => document.getElementById(id)?.classList.remove("active"));
-  const map = { menu:"menuScreen", cpu:"cpuScreen", battle:"battleScreen", shop:"shopScreen", pack:"packScreen", deck:"deckScreen", collection:"collectionScreen" };
-  document.getElementById(map[name])?.classList.add("active");
+function qs(id){return document.getElementById(id);}
+function showScreen(name){
+  const ids=["menuScreen","cpuScreen","battleScreen","shopScreen","packScreen","deckScreen","collectionScreen"];
+  ids.forEach(x=>qs(x)?.classList.remove("active"));
+  const map={menu:"menuScreen",cpu:"cpuScreen",battle:"battleScreen",shop:"shopScreen",pack:"packScreen",deck:"deckScreen",collection:"collectionScreen"};
+  qs(map[name])?.classList.add("active");
 }
+function openModal(title, body, buttons){
+  qs("modalTitle").textContent = title || "";
+  qs("modalBody").textContent = body || "";
+  const btns = qs("modalBtns");
+  btns.innerHTML = "";
+  (buttons||[{label:"OK",onClick:closeModal}]).forEach(b=>{
+    const el=document.createElement("button");
+    el.className="btn small";
+    el.textContent=b.label;
+    el.onclick=b.onClick;
+    btns.appendChild(el);
+  });
+  qs("overlay").style.display="block";
+}
+function closeModal(){ qs("overlay").style.display="none"; }
 
-/* ========== カード定義 ========== */
+function loadData(){
+  stones = parseInt(localStorage.getItem("ds_stones")||"0",10);
+  collection = JSON.parse(localStorage.getItem("ds_collection")||"{}");
+  enchantedCollection = JSON.parse(localStorage.getItem("ds_collection_enchanted")||"{}");
+  const d = localStorage.getItem("ds_playerDecks");
+  if(d){ try{ const p=JSON.parse(d); if(Array.isArray(p)&&p.length===3) savedDecks=p; }catch(e){} }
+  updateStoneDisplays();
+  updatePlayerDeckButtons();
+}
+function saveAll(){
+  localStorage.setItem("ds_stones", String(stones));
+  localStorage.setItem("ds_collection", JSON.stringify(collection));
+  localStorage.setItem("ds_collection_enchanted", JSON.stringify(enchantedCollection));
+  localStorage.setItem("ds_playerDecks", JSON.stringify(savedDecks));
+  updateStoneDisplays();
+}
+function updateStoneDisplays(){
+  qs("stoneCount").textContent = stones;
+  qs("shopStoneCount").textContent = stones;
+  qs("packStoneCount").textContent = stones;
+}
+function addStones(n){ stones+=n; saveAll(); }
+
+/* ===== Cards ===== */
 const cards = [
-  // 基本6種
+  // basic 0-5
   {id:0, name:"カー",   color:"red",    type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
   {id:1, name:"ルパプ", color:"purple", type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
   {id:2, name:"ルブブ", color:"blue",   type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
@@ -456,1468 +296,1215 @@ const cards = [
   {id:4, name:"ローシ", color:"white",  type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
   {id:5, name:"ドリミ", color:"green",  type:"character", cost:1, atk:1, hp:3, lore:1, rarity:"N",  inkable:true},
 
-  // 既存SR/L
-  {id:6, name:"終焉の大火",          color:"red",    type:"song",      cost:7, rarity:"SR", inkable:false, effect:"boardwipe"},
-  {id:7, name:"氷結の女王ケルサ",    color:"purple", type:"character", cost:8, atk:4, hp:6, lore:3, rarity:"L",  inkable:false, effect:"freeze2", evolveCost:6},
-  {id:8, name:"伝説の勇者イフリート", color:"red",   type:"character", cost:8, atk:5, hp:5, lore:4, rarity:"L",  inkable:true,  evade:true},
+  // songs / chars
+  {id:6,  name:"終焉の大火",          color:"red",    type:"song",      cost:7, rarity:"SR", inkable:false, effect:"boardwipe"},
+  {id:7,  name:"氷結の女王ケルサ",    color:"purple", type:"character", cost:8, atk:4, hp:6, lore:3, rarity:"L",  inkable:false, effect:"freeze2", evolveCost:6, evolveFrom:0},
+  {id:8,  name:"伝説の勇者イフリート", color:"red",   type:"character", cost:8, atk:5, hp:5, lore:4, rarity:"L",  inkable:true,  evade:true},
 
-  // 赤
   {id:9,  name:"タイタン",        color:"red",    type:"character", cost:5, atk:6, hp:5, lore:0, rarity:"SR", inkable:true, mustAttack:true, rush:true},
-  {id:10, name:"マジョドラ",      color:"red",    type:"character", cost:9, atk:7, hp:5, lore:2, rarity:"L",  inkable:true,  effect:"destroyOnSummon"},
+  {id:10, name:"マジョドラ",      color:"red",    type:"character", cost:9, atk:7, hp:5, lore:2, rarity:"L",  inkable:true, effect:"destroyOnSummon"},
   {id:11, name:"ぐわぐわダック",  color:"red",    type:"character", cost:2, atk:2, hp:3, lore:1, rarity:"N",  inkable:true},
 
-  // 青
   {id:12, name:"ゴーズ",       color:"blue",   type:"character", cost:7, atk:3, hp:6, lore:2, rarity:"L",  inkable:false, effect:"toInkOnSummon"},
-  {id:13, name:"リン",         color:"blue",   type:"character", cost:4, atk:2, hp:4, lore:1, rarity:"L",  inkable:true},
-  {id:14, name:"らたばあ",     color:"blue",   type:"character", cost:1, atk:1, hp:1, lore:1, rarity:"N",  inkable:true},
-  {id:15, name:"ありのままで", color:"blue",   type:"song",      cost:5, rarity:"SR", inkable:true,  effect:"songToInk1"},
+  {id:13, name:"リン",         color:"blue",   type:"character", cost:4, atk:2, hp:4, lore:1, rarity:"L",  inkable:true, effect:"extraInkPerTurn"},
+  {id:14, name:"らたばあ",     color:"blue",   type:"character", cost:1, atk:1, hp:1, lore:1, rarity:"N",  inkable:true, effect:"deathToInk"},
+  {id:15, name:"ありのままで", color:"blue",   type:"song",      cost:5, rarity:"SR", inkable:true, effect:"songToInk1"},
 
-  // 黄
   {id:16, name:"プレッツェル",   color:"yellow", type:"character", cost:4, atk:1, hp:5, lore:2, rarity:"L",  inkable:true,  effect:"pretzelHealDraw"},
   {id:17, name:"ミスターハジ",   color:"yellow", type:"character", cost:3, atk:2, hp:5, lore:1, rarity:"N",  inkable:true},
   {id:18, name:"フンバー",       color:"yellow", type:"character", cost:4, atk:3, hp:5, lore:1, rarity:"N",  inkable:true},
   {id:19, name:"アリエナイ",     color:"yellow", type:"character", cost:3, atk:2, hp:3, lore:1, rarity:"SR", inkable:true,  effect:"arienaiSearchSong", songPower:5},
 
-  // 緑
-  {id:20, name:"ジーユー",     color:"green",    type:"character", cost:6, atk:3, hp:4, lore:2, rarity:"SR", inkable:false, effect:"bounceOnSummon"},
-  {id:21, name:"エンハンス",   color:"green",    type:"character", cost:4, atk:3, hp:3, lore:3, rarity:"N",  inkable:true},
-  {id:22, name:"背筋がヒヤリ", color:"green",    type:"song",      cost:2, rarity:"N",  inkable:true,  effect:"discard1"},
+  {id:20, name:"ジーユー",     color:"green",  type:"character", cost:6, atk:3, hp:4, lore:2, rarity:"SR", inkable:false, effect:"bounceOnSummon"},
+  {id:21, name:"エンハンス",   color:"green",  type:"character", cost:4, atk:3, hp:3, lore:3, rarity:"N",  inkable:true},
+  {id:22, name:"背筋がヒヤリ", color:"green",  type:"song",      cost:2, rarity:"N",  inkable:true, effect:"discard1"},
 
-  // 紫
   {id:23, name:"ほうき",               color:"purple", type:"character", cost:2, atk:2, hp:2, lore:1, rarity:"N", inkable:true},
-  {id:24, name:"カメレオン",           color:"purple", type:"character", cost:1, atk:1, hp:1, lore:1, rarity:"N", inkable:true},
+  {id:24, name:"カメレオン",           color:"purple", type:"character", cost:1, atk:1, hp:1, lore:1, rarity:"N", inkable:true, effect:"evadeIfAlly"},
   {id:25, name:"ティラミスのたくらみ", color:"purple", type:"song",      cost:3, rarity:"R", inkable:true, effect:"draw3"},
   {id:26, name:"マジョ",               color:"purple", type:"character", cost:3, atk:2, hp:2, lore:1, rarity:"N", inkable:true, effect:"drawOnSummon1"},
   {id:27, name:"ケルサ",               color:"purple", type:"character", cost:3, atk:2, hp:3, lore:1, rarity:"N", inkable:true},
 
-  // 白
   {id:28, name:"AHNW",        color:"white", type:"song",      cost:5, rarity:"SR", inkable:false, effect:"handReset7"},
-  {id:29, name:"スラッシュ！", color:"white", type:"song",      cost:3, rarity:"R",  inkable:true,  effect:"damage3"},
+  {id:29, name:"スラッシュ！", color:"white", type:"action",   cost:3, rarity:"R",  inkable:true,  effect:"damage3"}, // action (not singable)
   {id:30, name:"剣で刺せ",    color:"white", type:"song",      cost:5, rarity:"R",  inkable:false, effect:"aoe2"},
-  {id:31, name:"エラッタ王子", color:"white", type:"character", cost:2, atk:1, hp:3, lore:1, rarity:"N", inkable:true,  effect:"frenzy2"}
+  {id:31, name:"エラッタ王子", color:"white", type:"character", cost:2, atk:1, hp:3, lore:1, rarity:"N", inkable:true, effect:"frenzy2"}
 ];
 
-/* ========== セーブデータ ========== */
-let stones = 0;
-let collection = {};
-let enchantedCollection = {};
-let savedDecks = [[], [], []];
-let currentDeckIndex = 0;
-  /* ========== ローカル保存系 ========== */
-function loadData() {
-  stones = parseInt(localStorage.getItem("ds_stones") || "0", 10);
-  collection = JSON.parse(localStorage.getItem("ds_collection") || "{}");
-  enchantedCollection = JSON.parse(localStorage.getItem("ds_collection_enchanted") || "{}");
-
-  const d3 = localStorage.getItem("ds_playerDecks");
-  if (d3) {
-    try {
-      const parsed = JSON.parse(d3);
-      if (Array.isArray(parsed) && parsed.length === 3) savedDecks = parsed;
-    } catch(e){}
-  }
-
-  updateStoneDisplays();
-  updatePlayerDeckButtons();
-}
-function saveStones(){ localStorage.setItem("ds_stones", String(stones)); updateStoneDisplays(); }
-function saveCollection(){ localStorage.setItem("ds_collection", JSON.stringify(collection)); }
-function saveEnchantedCollection(){ localStorage.setItem("ds_collection_enchanted", JSON.stringify(enchantedCollection)); }
-function savePlayerDecks(){ localStorage.setItem("ds_playerDecks", JSON.stringify(savedDecks)); }
-
-function updateStoneDisplays() {
-  document.getElementById("stoneCount")?.textContent = stones;
-  document.getElementById("shopStoneCount")?.textContent = stones;
-  document.getElementById("packStoneCount")?.textContent = stones;
-}
-
-/* ========== ショップ ========== */
-function showShop(){ updateStoneDisplays(); showScreen("shop"); }
-function debugAddStones(){ stones += 100; saveStones(); }
-
-/* ========== ガチャ ========== */
-function showPack(){ updateStoneDisplays(); document.getElementById("packResult").innerHTML=""; showScreen("pack"); }
-
-/* カードインスタンス生成（E/通常共通） */
-function makeCardInstance(base, isEnchanted=false){
+function baseById(id){ return cards.find(c=>c.id===id); }
+function isBasicId(id){ return id>=0 && id<=5; }
+function makeInst(base, isEnchanted=false){
   return {
-    id: base.id,
-    name: base.name,
-    color: base.color,
-    type: base.type,
-    cost: base.cost,
-    atk: base.atk || 0,
-    hp: base.hp || 0,
-    maxHp: base.hp || 0,
-    lore: base.lore || 0,
-    rarity: base.rarity,
-    inkable: base.inkable ?? true,
-    effect: base.effect || null,
-    evolveCost: base.evolveCost || null,
-    evade: base.evade || false,
-    mustAttack: base.mustAttack || false,
-    songPower: base.songPower || base.cost || 0,
-    rush: base.rush || false,
-    isEnchanted: !!isEnchanted,
-    rest: false,
-    frozen: false,
-    summonTurn: 0
+    id:base.id,name:base.name,color:base.color,type:base.type,cost:base.cost,
+    atk:base.atk||0,hp:base.hp||0,maxHp:base.hp||0,lore:base.lore||0,
+    rarity:base.rarity,inkable:(base.inkable??true),effect:base.effect||null,
+    evolveCost:base.evolveCost||null,evolveFrom:base.evolveFrom??null,
+    evade:!!base.evade,mustAttack:!!base.mustAttack,rush:!!base.rush,
+    songPower:base.songPower||base.cost||0,isEnchanted:!!isEnchanted,
+    rest:false,frozen:false,summonTurn:0
   };
 }
-
-/* バトルと同じカードデザインで表示（パック/コレクション用） */
-function renderCardHtml(card){
-  const classes = ["card", card.color];
-  if(card.rest) classes.push("rest");
-  if(card.isEnchanted) classes.push("enchanted");
-
-  const rarityBadge = card.isEnchanted ? "E" : card.rarity;
-  const atkHp = card.type === "character" ? `ATK:${card.atk} / HP:${card.hp}/${card.maxHp}` : "ソング";
-  const lorePart = card.type === "character" ? `ロア:${card.lore}` : "";
-  const inkSymbol = card.inkable ? "●" : "×";
-
+function renderCard(card){
+  const cls=["card",card.color];
+  if(card.rest) cls.push("rest");
+  if(card.frozen) cls.push("frozen");
+  if(card.isEnchanted) cls.push("enchanted");
+  const inkSym = card.inkable ? "●" : "×";
+  const badge = card.isEnchanted ? "E" : card.rarity;
+  const line1 = card.type==="character" ? `ATK:${card.atk} HP:${card.hp}/${card.maxHp}` : (card.type==="song"?"ソング":"アクション");
+  const line2 = card.type==="character" ? `ロア:${card.lore}` : "";
   return `
-    <div class="${classes.join(" ")}">
+    <div class="${cls.join(" ")}">
       <div class="card-header">
-        <div class="card-cost">${card.cost}</div>
-        <div class="card-name-header">${card.name}</div>
-        <div class="card-inkable">${inkSymbol}</div>
+        <div>${card.cost}</div>
+        <div class="card-name">${card.name}</div>
+        <div>${inkSym}</div>
       </div>
-      <div class="card-illustration"></div>
-      <div class="card-stats-row">
-        <span>${atkHp}</span>
-        <span>${lorePart}</span>
-      </div>
-      <div class="card-footer">
-        <div>色:${card.color} ／ レア:${rarityBadge}</div>
-      </div>
+      <div class="card-ill"></div>
+      <div class="card-row"><span>${line1}</span><span>${line2}</span></div>
+      <div class="card-footer">色:${card.color} / ${badge}</div>
     </div>
   `;
 }
 
-function renderSingleCardDivFromBaseCard(baseCard, isEnchanted=false){
-  const inst = makeCardInstance(baseCard, isEnchanted);
-  const wrap = document.createElement("div");
-  wrap.style.display="inline-block";
-  wrap.style.margin="4px";
-  wrap.innerHTML = renderCardHtml(inst);
-  wrap.firstElementChild.onclick = ()=>showCardDetail(inst);
-  return wrap;
-}
+/* ===== Pack & Collection ===== */
+function showPack(){ updateStoneDisplays(); qs("packResult").innerHTML=""; showScreen("pack"); }
+function showShop(){ updateStoneDisplays(); showScreen("shop"); }
 
 function openPack(){
   const COST=5;
-  if(stones < COST){ alert("ドリームストーンが足りません（5個必要）"); return; }
-  stones -= COST; saveStones();
+  if(stones<COST){ openModal("足りない","ドリームストーンが5個必要です。"); return; }
+  stones-=COST;
 
   const pulled=[];
   for(let i=0;i<5;i++){
-    let isEnchanted=false;
-    let baseCard=null;
-
-    if(Math.random() < ENCHANTED_RATE){
-      const l = cards.filter(c=>c.rarity==="L");
-      if(l.length){ baseCard = l[Math.floor(Math.random()*l.length)]; isEnchanted=true; }
+    let isE=false, base=null;
+    if(Math.random()<ENCHANTED_RATE){
+      const cand=cards.filter(c=>c.rarity==="L" && c.type==="character");
+      if(cand.length){ base=cand[Math.floor(Math.random()*cand.length)]; isE=true; }
     }
-    if(!baseCard){
+    if(!base){
       const r=Math.random();
-      let rarity = (r<0.78)?"N":(r<0.90)?"R":(r<0.98)?"SR":"L";
-      let candidates = cards.filter(c=>c.rarity===rarity);
-      if(!candidates.length){
-        for(const rr of ["L","SR","R","N"]){
-          const list = cards.filter(c=>c.rarity===rr);
-          if(list.length){ candidates=list; break; }
-        }
-      }
-      baseCard = candidates[Math.floor(Math.random()*candidates.length)];
+      let rarity = r<0.78?"N":r<0.90?"R":r<0.98?"SR":"L";
+      let cand=cards.filter(c=>c.rarity===rarity);
+      if(!cand.length) cand=cards.slice();
+      base=cand[Math.floor(Math.random()*cand.length)];
     }
-
-    pulled.push({card:baseCard,isEnchanted});
-
-    collection[baseCard.id] = (collection[baseCard.id]||0)+1;
-    if(isEnchanted){
-      enchantedCollection[baseCard.id] = (enchantedCollection[baseCard.id]||0)+1;
-    }
+    pulled.push({base,isE});
+    collection[base.id]=(collection[base.id]||0)+1;
+    if(isE) enchantedCollection[base.id]=(enchantedCollection[base.id]||0)+1;
   }
-  saveCollection(); saveEnchantedCollection();
 
-  const pr=document.getElementById("packResult");
-  pr.innerHTML="";
-  pulled.forEach(obj=> pr.appendChild(renderSingleCardDivFromBaseCard(obj.card, obj.isEnchanted)));
+  saveAll();
+  const area=qs("packResult"); area.innerHTML="";
+  pulled.forEach(p=>{
+    const inst=makeInst(p.base,p.isE);
+    const wrap=document.createElement("div");
+    wrap.style.display="inline-block"; wrap.style.margin="4px";
+    wrap.innerHTML=renderCard(inst);
+    wrap.firstElementChild.onclick=()=>showDetail(inst);
+    area.appendChild(wrap);
+  });
 }
 
-/* ========== カード詳細 ========== */
-function getCardEffectText(card){
-  switch(card.effect){
-    case "boardwipe": return "場のキャラを全て退場させる（ソング）。使用後このカードは破壊される。";
-    case "draw3": return "カードを3枚引く（ソング）。使用後このカードは破壊される。";
-    case "discard1": return "相手は手札を1枚捨てる（ソング）。使用後このカードは破壊される。";
-    case "songToInk1": return "自分の場のキャラを1体選び、退場させてインクに置く（ソング）。使用後このカードは破壊される。";
-    case "handReset7": return "お互い手札を全て捨て、7枚引く（ソング）。使用後このカードは破壊される。";
-    case "damage3": return "相手キャラ1体に3ダメージ（ソング）。使用後このカードは破壊される。";
-    case "aoe2": return "相手の場のキャラ全体に2ダメージ（ソング）。使用後このカードは破壊される。";
-    case "pretzelHealDraw": return "登場時：自分の場のキャラ合計3ダメージまで回復。回復した数だけドロー（0〜3）。";
-    case "arienaiSearchSong": return "登場時：デッキの上4枚を見て、ソングを1枚まで手札へ。残りは下へ。歌声5。";
-    case "drawOnSummon1": return "登場時：1枚ドロー。";
-    case "bounceOnSummon": return "登場時：相手の場のキャラ1体を手札に戻してよい。";
-    case "toInkOnSummon": return "登場時：手札から1枚をインクに置いてよい（効果によるインク化なので×でもOK）。";
-    case "freeze2": return "登場時：相手キャラを最大2体凍結（次の相手ターン開始まで行動できない）。";
-    case "destroyOnSummon": return "登場時：相手キャラ1体を退場させる。";
-  }
-  if(card.id===13) return "このキャラが場にいる間、自分は1ターンに置けるインクが+1。";
-  if(card.effect==="frenzy2") return "獰猛2：チャレンジ時ATK+2。";
-  return "特になし（効果は今後拡張）";
-}
-
-function showCardDetail(card){
-  const overlay=document.getElementById("cardDetailOverlay");
-  const content=document.getElementById("cardDetailContent");
-  if(!overlay||!content) return;
-
-  const rarityDisp = card.isEnchanted ? "E（エンチャンテッド）" : card.rarity;
-  const effectText = getCardEffectText(card);
-
-  const statsPart = (card.type==="character")
-    ? `<div style="margin-bottom:4px;">ATK:${card.atk} / HP:${card.hp}/${card.maxHp} / ロア:${card.lore}</div>`
-    : `<div style="margin-bottom:4px;">ソング（コスト:${card.cost}）</div>`;
-
-  content.innerHTML = `
-    <div style="font-weight:bold; margin-bottom:4px;">${card.name}</div>
-    <div style="font-size:12px; margin-bottom:4px;">
-      色:${card.color} ／ 種類:${card.type} ／ コスト:${card.cost} ／ レア:${rarityDisp}
-    </div>
-    ${statsPart}
-    <div style="font-size:12px; white-space:pre-wrap;">${effectText}</div>
-  `;
-  overlay.style.display="block";
-}
-function closeCardDetail(){ document.getElementById("cardDetailOverlay").style.display="none"; }
-function showCardDetailById(id){
-  const base=cards.find(c=>c.id===id);
-  if(!base) return;
-  showCardDetail(makeCardInstance(base,false));
-}
-
-/* ========== コレクション ========== */
 function openCollection(){
-  const list=document.getElementById("collectionList");
-  list.innerHTML="";
+  const list=qs("collectionList"); list.innerHTML="";
   cards.forEach(c=>{
-    const cnt = collection[c.id]||0;
-    const eCnt = enchantedCollection[c.id]||0;
-
+    const n=collection[c.id]||0, e=enchantedCollection[c.id]||0;
     const row=document.createElement("div");
-    row.style.display="flex";
-    row.style.alignItems="center";
-    row.style.gap="8px";
-    row.style.marginBottom="4px";
-
-    row.appendChild(renderSingleCardDivFromBaseCard(c,false));
-
+    row.style.display="flex"; row.style.gap="10px"; row.style.alignItems="center"; row.style.margin="8px 0";
+    const cardDiv=document.createElement("div"); cardDiv.innerHTML=renderCard(makeInst(c,false));
+    cardDiv.firstElementChild.onclick=()=>showDetail(makeInst(c,false));
     const info=document.createElement("div");
-    info.style.fontSize="12px";
-    info.innerHTML = `
-      <div>${c.name}</div>
-      <div>色:${c.color} / レア:${c.rarity}</div>
-      <div>所持枚数: 通常×${cnt} ${eCnt>0 ? "／ E×"+eCnt : ""}</div>
-    `;
+    info.innerHTML = `<div style="font-weight:bold">${c.name}</div>
+      <div style="font-size:12px;opacity:.9">色:${c.color} / 種類:${c.type} / コスト:${c.cost} / レア:${c.rarity}</div>
+      <div style="font-size:12px;opacity:.9">所持：通常×${n} ${e?`/ E×${e}`:""}</div>`;
+    row.appendChild(cardDiv.firstElementChild);
     row.appendChild(info);
     list.appendChild(row);
   });
   showScreen("collection");
 }
 
-/* ========== デッキ編集 ========== */
-let deckCountsNormal = {};
-let deckCountsEnchanted = {};
+function effectText(card){
+  switch(card.effect){
+    case "boardwipe": return "ソング(7)：場の全キャラを破壊。使用後このカードは墓地へ。歌えばコスト不要。";
+    case "freeze2": return "召喚時：相手のキャラを最大2体凍結（行動不可）。";
+    case "destroyOnSummon": return "召喚時：相手のキャラ1体を破壊。";
+    case "toInkOnSummon": return "召喚時：相手のキャラ1体をインクへ送る。";
+    case "extraInkPerTurn": return "場にいる間、自分は追加でインクを1枚置ける（+1回）。";
+    case "deathToInk": return "破壊されたとき墓地ではなくインクへ。";
+    case "songToInk1": return "ソング(5)：相手のキャラ1体をインクへ送る。";
+    case "pretzelHealDraw": return "召喚時：味方のダメージを合計3まで回復→回復した数だけ追加ドロー。";
+    case "arienaiSearchSong": return "召喚時：山札上4枚を見てソングを1枚まで手札へ。歌声5。";
+    case "bounceOnSummon": return "召喚時：相手のキャラ1体を手札に戻してよい。";
+    case "discard1": return "ソング(2)：相手は手札を1枚捨てる。";
+    case "evadeIfAlly": return "味方が他にいる間、このキャラは回避を得る。";
+    case "draw3": return "ソング(3)：3枚ドロー（効果で追加ドロー扱い）。";
+    case "drawOnSummon1": return "召喚時：1枚ドロー（効果で追加ドロー扱い）。";
+    case "handReset7": return "ソング(5)：お互い手札を捨てて7枚ドロー（効果ドロー）。";
+    case "damage3": return "アクション(3)：相手キャラ1体に3ダメージ。※歌えない";
+    case "aoe2": return "ソング(5)：相手の各キャラに2ダメージ。";
+    case "frenzy2": return "獰猛2：このキャラがチャレンジ中、ATK+2。";
+    default: return "特になし。";
+  }
+}
+function showDetail(card){
+  const txt = `色:${card.color} / 種類:${card.type} / コスト:${card.cost} / レア:${card.isEnchanted?"E":card.rarity}\n` +
+    (card.type==="character" ? `ATK:${card.atk} HP:${card.hp}/${card.maxHp} ロア:${card.lore}\n` : "") +
+    `\n${effectText(card)}`;
+  openModal(card.name, txt, [{label:"閉じる",onClick:closeModal}]);
+}
+
+/* ===== Deck Builder ===== */
+let deckN={}, deckE={};
+
 function openDeckBuilder(index){
   if(typeof index==="number") currentDeckIndex=index;
   rebuildDeckEditor();
   showScreen("deck");
 }
-function switchDeck(idx){ currentDeckIndex=idx; rebuildDeckEditor(); }
+function switchDeck(i){ currentDeckIndex=i; rebuildDeckEditor(); }
+function hasCustomDeck(i){ return Array.isArray(savedDecks[i]) && savedDecks[i].length>0; }
 
 function rebuildDeckEditor(){
-  deckCountsNormal={}; deckCountsEnchanted={};
-  const current = savedDecks[currentDeckIndex] || [];
-  current.forEach(entry=>{
-    if(entry && typeof entry==="object"){
-      const id=entry.id;
-      if(entry.isEnchanted) deckCountsEnchanted[id]=(deckCountsEnchanted[id]||0)+1;
-      else deckCountsNormal[id]=(deckCountsNormal[id]||0)+1;
-    }
+  deckN={}; deckE={};
+  const cur=savedDecks[currentDeckIndex]||[];
+  cur.forEach(ent=>{
+    const id= typeof ent==="number" ? ent : ent.id;
+    const isE= typeof ent==="object" && !!ent.isEnchanted;
+    if(isE) deckE[id]=(deckE[id]||0)+1; else deckN[id]=(deckN[id]||0)+1;
   });
 
-  document.getElementById("currentDeckLabel").textContent = (currentDeckIndex+1);
+  qs("currentDeckLabel").textContent = String(currentDeckIndex+1);
+  const total = Object.values(deckN).reduce((a,b)=>a+b,0) + Object.values(deckE).reduce((a,b)=>a+b,0);
+  qs("deckTotal").textContent = String(total);
 
-  const area=document.getElementById("deckCardList");
-  let html="";
+  const colors = new Set();
+  Object.keys(deckN).forEach(k=>{ if(deckN[k]>0) colors.add(baseById(parseInt(k,10))?.color); });
+  Object.keys(deckE).forEach(k=>{ if(deckE[k]>0) colors.add(baseById(parseInt(k,10))?.color); });
+  qs("deckColors").textContent = colors.size? Array.from(colors).join(" / "): "-";
+
+  const area=qs("deckCardList"); area.innerHTML="";
   cards.forEach(c=>{
-    const haveN=collection[c.id]||0;
-    const haveE=enchantedCollection[c.id]||0;
-    const inN=deckCountsNormal[c.id]||0;
-    const inE=deckCountsEnchanted[c.id]||0;
-
-    html += `
-      <div class="card-box ${c.color}" onclick="showCardDetailById(${c.id})">
-        <div class="card-name">${c.name}</div>
-        <div class="card-stats">色:${c.color} / レア:${c.rarity} / 種類:${c.type} / コスト:${c.cost}</div>
-        <div class="card-stats">所持: 通常×${haveN} ／ E×${haveE}</div>
-        <div class="card-stats">デッキ: 通常×<span id="deck-n-${c.id}">${inN}</span> ／ E×<span id="deck-e-${c.id}">${inE}</span></div>
-        <button class="btn small" onclick="event.stopPropagation(); changeDeckCount(${c.id}, -1, false)">－通常</button>
-        <button class="btn small" onclick="event.stopPropagation(); changeDeckCount(${c.id}, +1, false)">＋通常</button>
-        <button class="btn small" onclick="event.stopPropagation(); changeDeckCount(${c.id}, -1, true)">－E</button>
-        <button class="btn small" onclick="event.stopPropagation(); changeDeckCount(${c.id}, +1, true)">＋E</button>
-      </div>`;
+    const haveN=collection[c.id]||0, haveE=enchantedCollection[c.id]||0;
+    const inN=deckN[c.id]||0, inE=deckE[c.id]||0;
+    const sameTotal=inN+inE;
+    const row=document.createElement("div");
+    row.className="card-box";
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div>${renderCard(makeInst(c,false))}</div>
+        <div style="flex:1;">
+          <div style="font-weight:bold">${c.name}</div>
+          <div class="line">色:${c.color} / 種類:${c.type} / コスト:${c.cost} / レア:${c.rarity} / インク:${c.inkable?"●":"×"}</div>
+          <div class="line">所持：通常×${haveN} / E×${haveE}</div>
+          <div class="line">デッキ：通常×${inN} / E×${inE} <b>(合計${sameTotal}/4)</b></div>
+          <div style="margin-top:6px;">
+            <button class="btn small" data-act="minusN">－通常</button>
+            <button class="btn small" data-act="plusN">＋通常</button>
+            <button class="btn small" data-act="minusE">－E</button>
+            <button class="btn small" data-act="plusE">＋E</button>
+            <button class="btn small" data-act="detail">詳細</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const btn=(act)=>row.querySelector(`[data-act="${act}"]`);
+    btn("detail").onclick=()=>showDetail(makeInst(c,false));
+    btn("minusN").onclick=()=>changeDeckCount(c.id,-1,false);
+    btn("plusN").onclick=()=>changeDeckCount(c.id,+1,false);
+    btn("minusE").onclick=()=>changeDeckCount(c.id,-1,true);
+    btn("plusE").onclick=()=>changeDeckCount(c.id,+1,true);
+    area.appendChild(row);
   });
-  area.innerHTML=html;
-}
-function isBasicCard(id){ return id>=0 && id<=5; }
 
-function getDeckColorsFromTwoCounts(){
-  const colors=new Set();
-  function addFrom(counts){
-    Object.entries(counts).forEach(([idStr,cnt])=>{
-      if(cnt>0){
-        const base=cards.find(c=>c.id===parseInt(idStr,10));
-        if(base) colors.add(base.color);
-      }
-    });
+  // refresh meta after building
+  const total2 = Object.values(deckN).reduce((a,b)=>a+b,0) + Object.values(deckE).reduce((a,b)=>a+b,0);
+  qs("deckTotal").textContent = String(total2);
+}
+function getDeckColors(){
+  const s=new Set();
+  Object.keys(deckN).forEach(k=>{ if(deckN[k]>0) s.add(baseById(parseInt(k,10))?.color); });
+  Object.keys(deckE).forEach(k=>{ if(deckE[k]>0) s.add(baseById(parseInt(k,10))?.color); });
+  return s;
+}
+function changeDeckCount(id, diff, isE){
+  const counts=isE?deckE:deckN;
+  const before=counts[id]||0;
+  let next=before+diff;
+  if(next<0) next=0;
+
+  const have=isE?(enchantedCollection[id]||0):(collection[id]||0);
+  if(next>have){
+    openModal("追加できない", `所持数を超えています。\n所持：${have} / 追加後：${next}`, [{label:"OK",onClick:closeModal}]);
+    return;
   }
-  addFrom(deckCountsNormal); addFrom(deckCountsEnchanted);
-  return colors;
-}
 
-function changeDeckCount(cardId, diff, isEnchanted){
-  const counts = isEnchanted ? deckCountsEnchanted : deckCountsNormal;
-  const before = counts[cardId] || 0;
-  let cur = before + diff;
-  if(cur<0) cur=0;
+  // apply tentative
+  counts[id]=next;
 
-  const haveLimit = isEnchanted ? (enchantedCollection[cardId]||0) : (collection[cardId]||0);
-  if(cur>haveLimit){ alert("所持枚数を超えて入れられません"); cur=haveLimit; }
-  counts[cardId]=cur;
-
-  const colors = getDeckColorsFromTwoCounts();
+  // 2 colors max
+  const colors=getDeckColors();
   if(colors.size>2){
-    counts[cardId]=before;
-    alert("デッキは2色までです");
+    counts[id]=before;
+    openModal("追加できない","デッキは2色までです。", [{label:"OK",onClick:closeModal}]);
+    return;
   }
 
-  const totalSame = (deckCountsNormal[cardId]||0) + (deckCountsEnchanted[cardId]||0);
-  if(!isBasicCard(cardId) && totalSame>4){
-    counts[cardId]=before;
-    if(diff>0) alert("同名カードは4枚まで（通常+E合計）");
+  // same name 4 max (normal+E)
+  const totalSame=(deckN[id]||0)+(deckE[id]||0);
+  if(!isBasicId(id) && totalSame>4){
+    counts[id]=before;
+    openModal("追加できない","同名カードは4枚までです（通常＋E合算）。", [{label:"OK",onClick:closeModal}]);
+    return;
   }
 
-  document.getElementById("deck-n-"+cardId).textContent = deckCountsNormal[cardId]||0;
-  document.getElementById("deck-e-"+cardId).textContent = deckCountsEnchanted[cardId]||0;
+  rebuildDeckEditor();
 }
-
 function saveDeck(){
-  const newDeck=[];
-  Object.entries(deckCountsNormal).forEach(([idStr,cnt])=>{
-    const id=parseInt(idStr,10);
-    for(let i=0;i<cnt;i++) newDeck.push({id,isEnchanted:false});
+  const arr=[];
+  Object.keys(deckN).forEach(k=>{
+    for(let i=0;i<(deckN[k]||0);i++) arr.push({id:parseInt(k,10),isEnchanted:false});
   });
-  Object.entries(deckCountsEnchanted).forEach(([idStr,cnt])=>{
-    const id=parseInt(idStr,10);
-    for(let i=0;i<cnt;i++) newDeck.push({id,isEnchanted:true});
+  Object.keys(deckE).forEach(k=>{
+    for(let i=0;i<(deckE[k]||0);i++) arr.push({id:parseInt(k,10),isEnchanted:true});
   });
-  if(newDeck.length<60){ alert(`デッキは60枚以上にしてください（現在${newDeck.length}枚）`); return; }
-  savedDecks[currentDeckIndex]=newDeck;
-  savePlayerDecks();
-  alert(`デッキ${currentDeckIndex+1}を保存しました！（${newDeck.length}枚）`);
+  if(arr.length<60){
+    openModal("保存できない", `デッキは60枚以上にしてね。（現在${arr.length}枚）`);
+    return;
+  }
+  savedDecks[currentDeckIndex]=arr;
+  saveAll();
+  openModal("保存完了", `デッキ${currentDeckIndex+1}を保存しました！（${arr.length}枚）`);
   updatePlayerDeckButtons();
 }
 
-/* ========== CPU設定 ========== */
+/* ===== CPU config ===== */
 let cpuStrength="normal";
-let cpuSelectedColors=[];
+let cpuColors=[];
 let playerDeckMode="default";
-
 function openCpuConfig(){ updateCpuButtons(); updatePlayerDeckButtons(); showScreen("cpu"); }
 function setCpuStrength(s){ cpuStrength=s; updateCpuButtons(); }
-function setCpuColor(color){
-  const idx=cpuSelectedColors.indexOf(color);
-  if(idx>=0) cpuSelectedColors.splice(idx,1);
+function setCpuColor(c){
+  const i=cpuColors.indexOf(c);
+  if(i>=0) cpuColors.splice(i,1);
   else{
-    if(cpuSelectedColors.length>=2){ alert("CPUデッキは2色まで"); return; }
-    cpuSelectedColors.push(color);
+    if(cpuColors.length>=2){ openModal("注意","CPUデッキは2色まで。"); return; }
+    cpuColors.push(c);
   }
   updateCpuButtons();
 }
 function updateCpuButtons(){
-  document.getElementById("btnCpuNormal").classList.toggle("toggle-selected", cpuStrength==="normal");
-  document.getElementById("btnCpuStrong").classList.toggle("toggle-selected", cpuStrength==="strong");
-  document.getElementById("btnCpuGod").classList.toggle("toggle-selected", cpuStrength==="god");
-
+  qs("btnCpuNormal").classList.toggle("toggle-selected", cpuStrength==="normal");
+  qs("btnCpuStrong").classList.toggle("toggle-selected", cpuStrength==="strong");
+  qs("btnCpuGod").classList.toggle("toggle-selected", cpuStrength==="god");
   ["red","purple","blue","yellow","white","green"].forEach(c=>{
-    const btnId="cpu"+c.charAt(0).toUpperCase()+c.slice(1);
-    document.getElementById(btnId)?.classList.toggle("toggle-selected", cpuSelectedColors.includes(c));
+    const id="cpu"+c.charAt(0).toUpperCase()+c.slice(1);
+    qs(id)?.classList.toggle("toggle-selected", cpuColors.includes(c));
   });
 }
-function hasCustomDeck(index){ return Array.isArray(savedDecks[index]) && savedDecks[index].length>0; }
 function updatePlayerDeckButtons(){
-  const btnDef=document.getElementById("btnPlayerDefault");
-  const btn1=document.getElementById("btnDeck1");
-  const btn2=document.getElementById("btnDeck2");
-  const btn3=document.getElementById("btnDeck3");
-
-  btnDef.classList.toggle("toggle-selected", playerDeckMode==="default");
-  btn1.classList.toggle("toggle-selected", playerDeckMode==="deck1");
-  btn2.classList.toggle("toggle-selected", playerDeckMode==="deck2");
-  btn3.classList.toggle("toggle-selected", playerDeckMode==="deck3");
-
-  [btn1,btn2,btn3].forEach((b,i)=>{
-    if(!hasCustomDeck(i)){ b.disabled=true; b.textContent=`デッキ${i+1}（未保存）`; }
-    else { b.disabled=false; b.textContent=`デッキ${i+1}`; }
+  qs("btnPlayerDefault")?.classList.toggle("toggle-selected", playerDeckMode==="default");
+  const btns=[qs("btnDeck1"),qs("btnDeck2"),qs("btnDeck3")];
+  ["deck1","deck2","deck3"].forEach((m,idx)=>{
+    btns[idx]?.classList.toggle("toggle-selected", playerDeckMode===m);
+    if(!hasCustomDeck(idx)){ btns[idx].disabled=true; btns[idx].textContent=`デッキ${idx+1}（未保存）`; }
+    else{ btns[idx].disabled=false; btns[idx].textContent=`デッキ${idx+1}`; }
   });
 }
 function selectPlayerDeck(mode){
   if(mode.startsWith("deck")){
     const idx=parseInt(mode.slice(4),10)-1;
-    if(!hasCustomDeck(idx)){ alert(`まずデッキ${idx+1}を保存してください`); return; }
+    if(!hasCustomDeck(idx)){ openModal("未保存", `デッキ${idx+1}を先に保存してね。`); return; }
   }
   playerDeckMode=mode;
   updatePlayerDeckButtons();
 }
 
-/* ========== 共通ユーティリティ ========== */
-function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } }
-function sideLabel(side){ return side==="player" ? "自分" : "相手"; }
-
-function buildDeckInstancesFromSaved(saved){
-  const result=[];
-  (saved||[]).forEach(entry=>{
-    if(entry && typeof entry==="object"){
-      const base=cards.find(c=>c.id===entry.id);
-      if(base) result.push(makeCardInstance(base, !!entry.isEnchanted));
-    }
-  });
-  shuffle(result);
-  return result;
-}
-
-function makeDefaultDeck(){
-  const ids=[];
-  for(let i=0;i<12;i++) ids.push(0);
-  for(let i=0;i<8;i++) ids.push(11);
-  for(let i=0;i<4;i++) ids.push(9);
-  for(let i=0;i<4;i++) ids.push(20);
-  for(let i=0;i<4;i++) ids.push(21);
-  for(let i=0;i<4;i++) ids.push(22);
-  for(let i=0;i<4;i++) ids.push(6);
-  for(let i=0;i<4;i++) ids.push(8);
-  while(ids.length<60) ids.push(0);
-  return ids;
-}
-
-function addLog(text){
-  const logEl=document.getElementById("log");
-  if(!logEl) return;
-  const div=document.createElement("div");
-  div.textContent=text;
-  logEl.appendChild(div);
-  logEl.scrollTop=logEl.scrollHeight;
-}
-
-/* ========== バトル状態 ========== */
+/* ========= Battle core ========= */
 let battle=null;
 
-/* ===== 固定ルール =====
-- インクは「手札からインク化」で増える（基本1枚/ターン）。リンが場にいると+1。
-- ターン開始ドロー：必ず1枚。ただし先行の1ターン目は0枚。
-- 追加ドローはカード効果のみ（この制限を無視）
-- チャレンジは「相手のレストキャラ」にしかできない
-- ソング：キャラで歌えばコスト踏み倒し可（コスト条件は“同等以上のコスト”）
-====================== */
-
-function newSideState(deck){
-  return {
-    deck,
-    hand: [],
-    field: [],
-    inkZone: [],        // 実体のインクカード
-    inkCurrent: 0,
-    inkMax: 0,
-    lore: 0,
-    turnDrawn: false,
-    inkPlacedThisTurn: 0
-  };
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} }
+function buildDeckFromSaved(saved){
+  const out=[];
+  (saved||[]).forEach(ent=>{
+    const id= typeof ent==="number"?ent:ent.id;
+    const isE= typeof ent==="object" && !!ent.isEnchanted;
+    const base=baseById(id);
+    if(base) out.push(makeInst(base,isE));
+  });
+  shuffle(out); return out;
 }
-
-function rebuildInkNumbers(side){
-  const s=battle[side];
-  s.inkMax = s.inkZone.length;
-  if(s.inkCurrent > s.inkMax) s.inkCurrent = s.inkMax;
+function makeDefaultDeck(){
+  const ids=[];
+  for(let i=0;i<16;i++) ids.push(0);
+  for(let i=0;i<8;i++) ids.push(11);
+  for(let i=0;i<4;i++) ids.push(9);
+  for(let i=0;i<4;i++) ids.push(6);
+  for(let i=0;i<4;i++) ids.push(8);
+  for(let i=0;i<4;i++) ids.push(21);
+  for(let i=0;i<4;i++) ids.push(22);
+  while(ids.length<60) ids.push(0);
+  return ids.map(id=>({id,isEnchanted:false}));
 }
-
-function hasLinOnField(side){
-  return battle?.[side]?.field?.some(c=>c.id===ID_LIN) || false;
-}
-
-function inkPlacementsAllowed(side){
-  return 1 + (hasLinOnField(side) ? 1 : 0);
-}
-
-/* ========== ドロー ========== */
-function drawCardFor(side, reason="normal"){
-  const s=battle?.[side];
-  if(!s) return false;
-  if(s.deck.length===0){ addLog(`${sideLabel(side)}のデッキが切れた！`); return false; }
-
-  // 通常ドロー制限（効果ドローは無視）
-  if(reason==="normal"){
-    if(s.turnDrawn) return false;
-    // 先行1Tはドローなし
-    if(battle.firstPlayer===side && battle.turnCount===1) return false;
-    s.turnDrawn=true;
+function buildCpuDeck(colors){
+  if(!colors||!colors.length) colors=["red","purple"];
+  if(colors.length===1) colors=[colors[0],colors[0]];
+  const pool=cards.filter(c=>colors.includes(c.color));
+  const raw=[];
+  while(raw.length<60){
+    const b=pool[Math.floor(Math.random()*pool.length)];
+    raw.push({id:b.id,isEnchanted:false});
   }
-
-  const card=s.deck.shift();
-  s.hand.push(card);
-  return true;
+  return buildDeckFromSaved(raw);
 }
+function log(t){
+  const el=qs("log"); if(!el) return;
+  const d=document.createElement("div"); d.textContent=t; el.appendChild(d); el.scrollTop=el.scrollHeight;
+}
+function sideName(side){ return side==="player"?"自分":"相手"; }
+function enemySide(side){ return side==="player"?"cpu":"player"; }
 
-/* ========== 行動可能判定 ========== */
-function canCharacterAct(card){
+function canAct(card){
   if(!card) return false;
   if(card.rest) return false;
   if(card.frozen) return false;
   return true;
 }
-function canCharacterAttack(side, card){
-  if(!canCharacterAct(card)) return false;
-  // 召喚酔い：召喚ターンは攻撃不可（突進はOK）
-  if(!card.rush && card.summonTurn === battle.turnCount) return false;
+function canChallenge(attacker){
+  if(!canAct(attacker)) return false;
+  if(!attacker.rush && attacker.summonTurn===battle.turn.turnCount) return false;
   return true;
 }
 
-/* ========== 勝敗（ロア20） ========== */
-function checkWin(){
-  if(!battle) return false;
-  if(battle.player.lore>=20){ alert("ロア20到達！あなたの勝ち！"); endBattleToMenu(); return true; }
-  if(battle.cpu.lore>=20){ alert("相手がロア20に到達…負けてしまった。"); endBattleToMenu(); return true; }
-  return false;
+/* ===== Turn & Draw control =====
+  start-of-turn draw is automatic:
+   - first player turn1: 0 draw
+   - otherwise: 1 draw
+  extra draws only by effects => battle.turn.extraDrawCredit
+*/
+function drawOne(side){
+  const s=battle[side];
+  if(s.deck.length===0){ log(`${sideName(side)}の山札が0！`); return null; }
+  const c=s.deck.shift(); s.hand.push(c); return c;
+}
+function grantExtraDraw(side, n){
+  battle.turn.extraDrawCredit[side] += n;
+}
+function effectDraw(side, n, reason){
+  grantExtraDraw(side,n);
+  for(let i=0;i<n;i++){
+    const c=drawOne(side);
+    if(c) log(`${sideName(side)}は効果で1枚ドロー（${reason||"効果"}）`);
+  }
 }
 
-/* ========== バトル開始 ========== */
-function buildCpuDeck(selectedColors){
-  if(!selectedColors || selectedColors.length===0) selectedColors=["red","purple"];
-  if(selectedColors.length===1) selectedColors=[selectedColors[0],selectedColors[0]];
-  const pool=cards.filter(c=>selectedColors.includes(c.color));
-  const deckEntries=[];
-  while(deckEntries.length<60){
-    const base=pool[Math.floor(Math.random()*pool.length)];
-    deckEntries.push({id:base.id,isEnchanted:false});
+/* ===== Ink rules =====
+ - place ink from hand: once per turn + bonus from "リン" if on field (extraInkPerTurn)
+ - card must be inkable (●) unless effect uses moveToInk(...,true)
+ - placed ink is immediately available (no sickness), so inkMax++, inkCurrent++
+*/
+function calcInkPlacementLimit(side){
+  const s=battle[side];
+  let bonus=0;
+  s.field.forEach(c=>{ if(c.effect==="extraInkPerTurn") bonus+=1; });
+  return 1 + bonus;
+}
+</script>
+<!-- Part2 continues below -->
+<script>
+function tryPlaceInkFromHand(side, handIndex){
+  const s=battle[side];
+  const card=s.hand[handIndex];
+  if(!card) return;
+
+  const limit = calcInkPlacementLimit(side);
+  if(battle.turn.inkPlaced[side] >= limit){
+    openModal("インク化できない", `このターンのインク化上限に達しています（${limit}回）。`);
+    return;
   }
-  shuffle(deckEntries);
-  return buildDeckInstancesFromSaved(deckEntries);
+  if(!card.inkable){
+    openModal("インク化できない","このカードはインク化不可（×）です。");
+    return;
+  }
+  // place
+  s.hand.splice(handIndex,1);
+  s.ink.push(card);
+  s.inkMax += 1;
+  s.inkCurrent += 1;
+  battle.turn.inkPlaced[side] += 1;
+  log(`${sideName(side)}は手札の「${card.name}」をインクに置いた（+1）。`);
+  updateUI();
+}
+
+function moveToInkByEffect(targetSide, card, reason){
+  // effect can ink even if inkable=false
+  const s=battle[targetSide];
+  s.ink.push(card);
+  s.inkMax += 1;
+  s.inkCurrent += 1;
+  log(`${sideName(targetSide)}のインクに「${card.name}」が置かれた（効果：${reason||""}）。`);
 }
 
 function startBattle(){
-  if(cpuSelectedColors.length===0){
-    if(!confirm("CPUの色が未選択です。赤＋紫で始めますか？")) return;
-    cpuSelectedColors=["red","purple"];
-    updateCpuButtons();
-  }
+  if(!cpuColors.length) cpuColors=["red","purple"];
+  let playerDef;
+  if(playerDeckMode==="default") playerDef=makeDefaultDeck();
+  else if(playerDeckMode==="deck1") playerDef=savedDecks[0]||[];
+  else if(playerDeckMode==="deck2") playerDef=savedDecks[1]||[];
+  else if(playerDeckMode==="deck3") playerDef=savedDecks[2]||[];
+  else playerDef=[];
 
-  let playerDeckDef;
-  if(playerDeckMode==="default"){
-    const ids=makeDefaultDeck();
-    playerDeckDef=ids.map(id=>({id,isEnchanted:false}));
-  }else if(playerDeckMode==="deck1") playerDeckDef=savedDecks[0]||[];
-  else if(playerDeckMode==="deck2") playerDeckDef=savedDecks[1]||[];
-  else if(playerDeckMode==="deck3") playerDeckDef=savedDecks[2]||[];
-  else playerDeckDef=[];
+  const pDeck = buildDeckFromSaved(playerDef);
+  if(pDeck.length<60){ openModal("デッキ不足","デッキが60枚未満です。デッキ編集で保存してね。"); return; }
 
-  const playerDeck=buildDeckInstancesFromSaved(playerDeckDef);
-  if(playerDeck.length<60){ alert("プレイヤーデッキが60枚未満です"); return; }
-
-  const cpuDeck=buildCpuDeck(cpuSelectedColors);
-
-  battle={
-    turnCount: 1,
-    currentPlayer: "player",
-    firstPlayer: "player",     // 先行＝プレイヤー固定（必要なら後でランダム化できる）
-    cpuStrength,
-    player: newSideState(playerDeck),
-    cpu: newSideState(cpuDeck)
+  battle = {
+    firstPlayer: "player",
+    turn: {
+      turnCount: 1,
+      current: "player",
+      autoDrawDone: {player:false,cpu:false},
+      inkPlaced: {player:0,cpu:0},
+      extraDrawCredit: {player:0,cpu:0}
+    },
+    player: {deck:pDeck, hand:[], field:[], discard:[], ink:[], inkCurrent:0, inkMax:0, lore:0},
+    cpu:    {deck:buildCpuDeck(cpuColors), hand:[], field:[], discard:[], ink:[], inkCurrent:0, inkMax:0, lore:0}
   };
 
-  document.getElementById("log").innerHTML="";
-
-  // 初期手札：7枚ずつ
-  for(let i=0;i<7;i++){ drawCardFor("player","effect"); drawCardFor("cpu","effect"); }
-
-  // 初期インク：0（手札から置く）
-  rebuildInkNumbers("player");
-  rebuildInkNumbers("cpu");
+  qs("log").innerHTML="";
+  // initial hand 7
+  for(let i=0;i<7;i++){ drawOne("player"); drawOne("cpu"); }
 
   showScreen("battle");
-  addLog("バトル開始！");
-  startTurn("player");
+  log("バトル開始！");
+  beginTurn("player", true);
 }
 
-function endBattleToMenu(){ battle=null; showScreen("menu"); }
+function beginTurn(side, isFirstTurn){
+  battle.turn.current = side;
 
-/* ========== ターン開始（自動ドロー/リフレッシュ/置けるインク回数リセット） ========== */
-function startTurn(side){
-  battle.currentPlayer=side;
+  // refresh ink (all available)
+  const s=battle[side];
+  s.inkCurrent = s.inkMax;
 
-  // リフレッシュ：インク回復（最大＝インク枚数、上限なし）
-  rebuildInkNumbers(side);
-  battle[side].inkCurrent = battle[side].inkMax;
+  // ready & thaw
+  s.field.forEach(c=>{ c.rest=false; c.frozen=false; });
 
-  // レスト解除＆凍結解除（凍結は「次の相手ターン開始まで」なので開始で解除）
-  battle[side].field.forEach(c=>{
-    c.rest=false;
-    if(c.frozen) c.frozen=false;
-  });
+  // reset per-turn trackers
+  battle.turn.inkPlaced[side]=0;
+  battle.turn.extraDrawCredit[side]=0;
+  battle.turn.autoDrawDone[side]=false;
 
-  battle[side].turnDrawn=false;
-  battle[side].inkPlacedThisTurn=0;
+  log(`=== ${sideName(side)}のターン ${battle.turn.turnCount} ===`);
 
-  addLog(`=== ${sideLabel(side)}のターン ${battle.turnCount} ===`);
+  // auto draw (except first player turn1)
+  const isFirstPlayerTurn1 = (side===battle.firstPlayer && battle.turn.turnCount===1);
+  if(!isFirstPlayerTurn1){
+    drawOne(side);
+    battle.turn.autoDrawDone[side]=true;
+    log(`${sideName(side)}はターン開始時に1枚ドロー。`);
+  } else {
+    log(`先行1ターン目のため、ターン開始ドローなし。`);
+  }
 
-  // ターン開始ドロー（先行1Tは0）
-  const drew = drawCardFor(side,"normal");
-  if(drew) addLog(`${sideLabel(side)}はターン開始に1枚ドローした。`);
-  else if(battle.firstPlayer===side && battle.turnCount===1) addLog(`${sideLabel(side)}は先行1ターン目のためドローしない。`);
-
-  updateBattleUI();
+  updateUI();
 
   if(side==="cpu"){
-    cpuDoTurn();
+    setTimeout(cpuTakeTurn, 150);
   }
 }
 
 function endTurn(){
   if(!battle) return;
-  if(battle.currentPlayer!=="player") return;
-
-  addLog("自分はターンを終了した。");
-  battle.turnCount += 1;
-  startTurn("cpu");
+  if(battle.turn.current!=="player") return;
+  log("自分はターン終了。");
+  updateUI();
+  // cpu turn
+  beginTurn("cpu", false);
 }
 
-/* ========== インク化（手札→インク） ========== */
-function canInkCardFromHand(side, card){
-  if(!card) return false;
-  if(!card.inkable) return false; // ❌カード（inkable=false）は通常は置けない
-  const s=battle[side];
-  return s.inkPlacedThisTurn < inkPlacementsAllowed(side);
+function endBattleToMenu(){
+  battle=null;
+  showScreen("menu");
 }
 
-function inkFromHand(side, handIndex, byEffect=false){
-  const s=battle[side];
-  const card=s.hand[handIndex];
-  if(!card) return false;
+/* ===== Victory ===== */
+function checkWin(){
+  if(!battle) return false;
+  if(battle.player.lore>=20){ openModal("勝利！","ロア20到達！あなたの勝ち！",[{label:"OK",onClick:()=>{closeModal();endBattleToMenu();}}]); return true; }
+  if(battle.cpu.lore>=20){ openModal("敗北…","相手がロア20到達…",[{label:"OK",onClick:()=>{closeModal();endBattleToMenu();}}]); return true; }
+  return false;
+}
 
-  if(!byEffect){
-    if(!canInkCardFromHand(side, card)){ alert("このカードはインク化できない／回数上限"); return false; }
-    s.inkPlacedThisTurn++;
-  }else{
-    // 効果によるインク化はinkable=falseでもOK（固定ルール）
-  }
-
-  s.hand.splice(handIndex,1);
-  s.inkZone.push(card);
-  rebuildInkNumbers(side);
-  s.inkCurrent += 1; // 置いた分はそのターン使える
-  addLog(`${sideLabel(side)}は手札の「${card.name}」をインク化した。（インク ${s.inkCurrent}/${s.inkMax}）`);
-  updateBattleUI();
+/* ===== Combat rules =====
+ - target must be RESTED
+ - evade: only evade attackers can target evade defenders (簡略：防御側が回避なら、攻撃側も回避持ちのみ)
+ - frenzy2: attacker gets +2 atk during challenge
+*/
+function canTarget(attacker, defender){
+  if(!defender.rest) return false; // MUST be rested
+  if(defender.evade && !attacker.evade) return false;
   return true;
 }
 
-/* ========== 戦闘（チャレンジ） : レストしてる相手だけ ======== */
-function resolveCombat(attackerSide, attackerIndex, defenderIndex){
-  const atkSide=battle[attackerSide];
-  const defSide=(attackerSide==="player")?battle.cpu:battle.player;
+function dealDamageToChar(targetSide, idx, dmg, reason){
+  const s=battle[targetSide];
+  const c=s.field[idx];
+  if(!c) return;
+  c.hp -= dmg;
+  log(`${sideName(targetSide)}の「${c.name}」に${dmg}ダメージ（${reason||"効果"}）`);
+  if(c.hp<=0){
+    destroyChar(targetSide, idx, "ダメージ");
+  }
+}
+function destroyChar(side, idx, reason){
+  const s=battle[side];
+  const c=s.field[idx];
+  if(!c) return;
 
-  const attacker=atkSide.field[attackerIndex];
-  const defender=defSide.field[defenderIndex];
-  if(!attacker || !defender) return false;
+  s.field.splice(idx,1);
 
-  // チャレンジ先は必ずレスト
-  if(!defender.rest) return false;
+  // deathToInk
+  if(c.effect==="deathToInk"){
+    moveToInkByEffect(side, c, "らたばあ");
+  } else {
+    s.discard.push(c);
+    log(`${sideName(side)}の「${c.name}」は破壊された（${reason||""}）→墓地へ`);
+  }
+}
 
-  if(!canCharacterAttack(attackerSide, attacker)) return false;
+function resolveChallenge(attSide, attIdx, defIdx){
+  const A = battle[attSide];
+  const D = battle[enemySide(attSide)];
+  const attacker=A.field[attIdx];
+  const defender=D.field[defIdx];
+  if(!attacker||!defender) return;
 
-  addLog(`${sideLabel(attackerSide)}の「${attacker.name}」が${sideLabel(attackerSide==="player"?"cpu":"player")}の「${defender.name}」にチャレンジ！`);
+  if(!canChallenge(attacker)){ if(attSide==="player") openModal("できない","このキャラは今チャレンジできません（召喚酔い/レスト/凍結）。"); return; }
+  if(!canTarget(attacker, defender)){ if(attSide==="player") openModal("できない","チャレンジ先は「レストしているキャラ」のみです。"); return; }
 
-  const attackerAtk = attacker.atk + ((attacker.effect==="frenzy2") ? 2 : 0);
-  defender.hp -= attackerAtk;
+  let attAtk = attacker.atk;
+  if(attacker.effect==="frenzy2") attAtk += 2;
+
+  log(`${sideName(attSide)}の「${attacker.name}」が「${defender.name}」にチャレンジ！`);
+
+  defender.hp -= attAtk;
   attacker.hp -= defender.atk;
-
-  attacker.rest=true;
+  attacker.rest = true;
 
   if(defender.hp<=0){
-    addLog(`「${defender.name}」は退場した。`);
-    defSide.field.splice(defenderIndex,1);
+    // find current index again (it might shift if multiple calls, but here safe)
+    const i = D.field.indexOf(defender);
+    if(i>=0) destroyChar(enemySide(attSide), i, "戦闘");
   }
   if(attacker.hp<=0){
-    addLog(`「${attacker.name}」は退場した。`);
-    atkSide.field.splice(attackerIndex,1);
+    const i = A.field.indexOf(attacker);
+    if(i>=0) destroyChar(attSide, i, "戦闘");
   }
-  return true;
 }
 
-/* ========== シーク（ロア獲得＝カードのロア値） ========== */
-function doSeek(side, fieldIndex){
+/* ===== Seek ===== */
+function doSeek(side, fieldIdx){
   const s=battle[side];
-  const card=s.field[fieldIndex];
-  if(!card || !canCharacterAct(card)) return false;
-
-  card.rest=true;
-  s.lore += card.lore;
-  addLog(`${sideLabel(side)}の「${card.name}」がシークし、ロアが${card.lore}増えた。（計${s.lore}）`);
-  updateBattleUI();
-  checkWin();
-  return true;
+  const c=s.field[fieldIdx];
+  if(!c||!canAct(c)) return;
+  c.rest=true;
+  s.lore += c.lore;
+  log(`${sideName(side)}の「${c.name}」がシーク（ロア+${c.lore}）→計${s.lore}`);
+  updateUI(); checkWin();
 }
 
-/* ========== ソング：歌えるキャラ一覧（コスト条件） ========== */
-function listSingersForSong(side, song){
+/* ===== Summon / Play ===== */
+function summonFromHand(side, handIdx){
   const s=battle[side];
-  const res=[];
-  s.field.forEach((c, idx)=>{
-    if(!canCharacterAct(c)) return;
-    const power = c.songPower ?? c.cost;
-    if(power >= song.cost){
-      res.push({card:c, idx});
-    }
-  });
-  return res;
+  const c=s.hand[handIdx];
+  if(!c||c.type!=="character") return;
+  if(s.inkCurrent < c.cost){ if(side==="player") openModal("足りない","インクが足りません。"); return; }
+  s.inkCurrent -= c.cost;
+  s.hand.splice(handIdx,1);
+  c.summonTurn = battle.turn.turnCount;
+  c.rest = false;
+  c.frozen = false;
+  s.field.push(c);
+  log(`${sideName(side)}は「${c.name}」を召喚。`);
+  onSummon(side, c);
+  updateUI();
 }
 
-/* ========== ターゲット選択補助 ========== */
-function pickTargetFromField(side, msg, filterFn=null){
-  const field=battle?.[side]?.field || [];
-  const candidates=[];
-  field.forEach((c,i)=>{
-    if(!filterFn || filterFn(c,i)) candidates.push({c,i});
-  });
-  if(candidates.length===0) return null;
-
-  let text = msg + "\n";
-  candidates.forEach((obj,k)=>{
-    const c=obj.c;
-    text += `${k}: ${c.name} (ATK:${c.atk} HP:${c.hp}/${c.maxHp} ${c.rest?"REST":""})\n`;
-  });
-  const pick = prompt(text, "0");
-  if(pick===null) return null;
-  const k = parseInt(pick,10);
-  if(Number.isNaN(k) || k<0 || k>=candidates.length){ alert("選択が不正"); return null; }
-  return candidates[k].i;
+function playActionFromHand(side, handIdx){
+  const s=battle[side];
+  const c=s.hand[handIdx];
+  if(!c||c.type!=="action") return;
+  if(s.inkCurrent < c.cost){ if(side==="player") openModal("足りない","インクが足りません。"); return; }
+  s.inkCurrent -= c.cost;
+  s.hand.splice(handIdx,1);
+  log(`${sideName(side)}はアクション「${c.name}」を使用。`);
+  applyEffectCard(side, c, null); // no singer
+  s.discard.push(c);
+  updateUI(); checkWin();
 }
 
-function dealDamageTo(side, idx, amount){
-  const f=battle[side].field;
-  const c=f[idx];
-  if(!c) return;
-  c.hp -= amount;
-  addLog(`${sideLabel(side)}の「${c.name}」に${amount}ダメージ（HP ${Math.max(0,c.hp)}/${c.maxHp}）`);
-  if(c.hp<=0){
-    addLog(`「${c.name}」は退場した。`);
-    f.splice(idx,1);
+function playSongFromHand(side, handIdx, singerIdxOrNull){
+  const s=battle[side];
+  const c=s.hand[handIdx];
+  if(!c||c.type!=="song") return;
+
+  let paidByInk=true;
+  let singer=null;
+  if(typeof singerIdxOrNull==="number"){
+    singer=s.field[singerIdxOrNull];
+    if(!singer || !canAct(singer)){ if(side==="player") openModal("できない","そのキャラは歌えません（レスト/凍結）。"); return; }
+    if(singer.cost < c.cost){ if(side==="player") openModal("できない","歌えるのはキャラのコストがソングコスト以上のとき。"); return; }
+    // sing => no ink cost
+    paidByInk=false;
   }
-}
 
-/* ========== ソング効果 ========== */
-function applySongEffect(casterSide, song){
-  const enemySide = (casterSide==="player") ? "cpu" : "player";
-
-  switch(song.effect){
-    case "boardwipe":{
-      battle.player.field=[];
-      battle.cpu.field=[];
-      addLog("場のキャラが全て退場した。");
-      break;
-    }
-    case "draw3":{
-      for(let i=0;i<3;i++) drawCardFor(casterSide,"effect");
-      addLog(`${sideLabel(casterSide)}は3枚ドローした。`);
-      break;
-    }
-    case "discard1":{
-      const enemy=battle[enemySide];
-      if(enemy.hand.length===0){ addLog(`${sideLabel(enemySide)}の手札は0枚だった。`); break; }
-      if(enemySide==="player"){
-        let msg="捨てる手札を番号で選んでください\n";
-        enemy.hand.forEach((c,i)=> msg+=`${i}: ${c.name}\n`);
-        const pick=prompt(msg,"0"); if(pick===null) break;
-        const idx=parseInt(pick,10);
-        if(Number.isNaN(idx)||idx<0||idx>=enemy.hand.length){ alert("不正"); break; }
-        const removed=enemy.hand.splice(idx,1)[0];
-        addLog(`自分は「${removed.name}」を捨てた。`);
-      }else{
-        // 鬼AI：捨てさせたい＝高コスト優先で落とす
-        let idx=0;
-        for(let i=1;i<enemy.hand.length;i++){
-          if(enemy.hand[i].cost > enemy.hand[idx].cost) idx=i;
-        }
-        const removed=enemy.hand.splice(idx,1)[0];
-        addLog(`相手は手札を1枚捨てた。（${removed.name}）`);
-      }
-      break;
-    }
-    case "songToInk1":{
-      const caster=battle[casterSide];
-      if(caster.field.length===0){ addLog(`${sideLabel(casterSide)}の場にキャラがいないため不発。`); break; }
-
-      let idx;
-      if(casterSide==="player"){
-        idx = pickTargetFromField(casterSide, "インクにする（退場させる）自分の場のキャラを選んでください");
-        if(idx===null) break;
-      }else{
-        // 鬼AI：ロアが低い/仕事が少ない順にインク化
-        idx = 0;
-        for(let i=1;i<caster.field.length;i++){
-          const a=caster.field[i], b=caster.field[idx];
-          const scoreA = (a.lore*2) + a.atk + a.hp;
-          const scoreB = (b.lore*2) + b.atk + b.hp;
-          if(scoreA < scoreB) idx=i;
-        }
-      }
-
-      const chosen = caster.field.splice(idx,1)[0];
-      caster.inkZone.push(chosen);
-      rebuildInkNumbers(casterSide);
-      caster.inkCurrent += 1;
-      addLog(`${sideLabel(casterSide)}は「${chosen.name}」を退場させ、インクに置いた。（インク ${caster.inkCurrent}/${caster.inkMax}）`);
-      break;
-    }
-    case "handReset7":{
-      ["player","cpu"].forEach(side=>{
-        battle[side].hand=[];
-        for(let i=0;i<7;i++) drawCardFor(side,"effect");
-      });
-      addLog("お互い手札をリセットし、7枚引いた。");
-      break;
-    }
-    case "damage3":{
-      const enemy=battle[enemySide];
-      if(enemy.field.length===0){ addLog(`${sideLabel(enemySide)}の場にキャラがいないため不発。`); break; }
-
-      let idx;
-      if(casterSide==="player"){
-        idx = pickTargetFromField(enemySide, "3ダメージを与える相手キャラを選んでください");
-        if(idx===null) break;
-      }else{
-        // 鬼AI：倒せるなら倒す、無理ならロア最大を狙う
-        idx = 0;
-        let best=-999;
-        for(let i=0;i<enemy.field.length;i++){
-          const c=enemy.field[i];
-          const killBonus = (c.hp<=3) ? 50 : 0;
-          const v = killBonus + (c.lore*10) + c.atk*2 + (c.rest?2:0);
-          if(v>best){ best=v; idx=i; }
-        }
-      }
-      dealDamageTo(enemySide, idx, 3);
-      break;
-    }
-    case "aoe2":{
-      const enemy=battle[enemySide];
-      if(enemy.field.length===0){ addLog(`${sideLabel(enemySide)}の場にキャラがいないため不発。`); break; }
-      for(let i=enemy.field.length-1;i>=0;i--) dealDamageTo(enemySide, i, 2);
-      addLog(`${sideLabel(enemySide)}の場の全体に2ダメージ。`);
-      break;
-    }
+  if(paidByInk){
+    if(s.inkCurrent < c.cost){ if(side==="player") openModal("足りない","インクが足りません。"); return; }
+    s.inkCurrent -= c.cost;
+  } else {
+    singer.rest = true;
+    log(`${sideName(side)}の「${singer.name}」が「${c.name}」を歌った（コスト踏み倒し）`);
   }
+
+  s.hand.splice(handIdx,1);
+  log(`${sideName(side)}はソング「${c.name}」を使用。`);
+  applyEffectCard(side, c, singer);
+  s.discard.push(c);
+  updateUI(); checkWin();
 }
 
-/* ========== 召喚時効果 ========== */
-function handleOnSummonEffects(side, card){
-  if(!card?.effect) return;
-  const enemySide = (side==="player") ? "cpu" : "player";
-
+/* ===== Effects ===== */
+function findEnemyChars(side){ return battle[enemySide(side)].field; }
+function onSummon(side, card){
   switch(card.effect){
-    case "freeze2":{
-      const enemy=battle[enemySide];
-      if(enemy.field.length===0){ addLog(`「${card.name}」の効果：凍結対象なし`); break; }
+    case "freeze2": return effectFreeze2(side);
+    case "destroyOnSummon": return effectDestroyOne(side);
+    case "toInkOnSummon": return effectEnemyCharToInk(side);
+    case "bounceOnSummon": return effectBounceOne(side);
+    case "drawOnSummon1": return effectDraw(side,1,"召喚時");
+    case "pretzelHealDraw": return effectPretzel(side);
+    case "arienaiSearchSong": return effectArienai(side);
+    default: return;
+  }
+}
 
-      if(side==="player"){
-        const idx1 = pickTargetFromField(enemySide, "凍結する相手を最大2体まで：1体目（キャンセルで終了）");
-        if(idx1===null) break;
-        enemy.field[idx1].frozen=true; addLog(`「${card.name}」で相手の「${enemy.field[idx1].name}」を凍結した。`);
+function chooseEnemyCharIndexUI(side, title, msg){
+  const enemy=battle[enemySide(side)];
+  if(enemy.field.length===0) return Promise.resolve(null);
 
-        const idx2 = pickTargetFromField(enemySide, "2体目（同じでもOK／キャンセルで終了）");
-        if(idx2===null) break;
-        enemy.field[idx2].frozen=true; addLog(`「${card.name}」で相手の「${enemy.field[idx2].name}」を凍結した。`);
-      }else{
-        // 鬼AI：ロア高い順に凍結
-        const sorted = enemy.field.map((c,i)=>({c,i})).sort((a,b)=> (b.c.lore-a.c.lore) || (b.c.atk-a.c.atk));
-        sorted.slice(0,2).forEach(obj=>{
-          obj.c.frozen=true;
-          addLog(`相手の「${card.name}」で自分の「${obj.c.name}」が凍結した。`);
+  return new Promise(resolve=>{
+    const lines = enemy.field.map((c,i)=>`${i}: ${c.name} (HP:${c.hp}) ${c.rest?"[REST]":"[READY]"}`).join("\n");
+    openModal(title, `${msg}\n\n${lines}`, [
+      {label:"キャンセル",onClick:()=>{closeModal();resolve(null);}},
+      ...enemy.field.map((c,i)=>({label:`${i}`,onClick:()=>{closeModal();resolve(i);}}))
+    ]);
+  });
+}
+
+function effectFreeze2(side){
+  const enemy=battle[enemySide(side)];
+  if(enemy.field.length===0){ log("凍結先なし。"); return; }
+
+  if(side==="cpu"){
+    // freeze best attackers
+    const idxs = enemy.field
+      .map((c,i)=>({i,score:c.atk*10 + c.lore}))
+      .sort((a,b)=>b.score-a.score)
+      .slice(0,2).map(x=>x.i);
+    idxs.forEach(i=>{ enemy.field[i].frozen=true; log(`相手の「${enemy.field[i].name}」が凍結した。`); });
+    return;
+  }
+
+  // player chooses up to 2
+  const lines = enemy.field.map((c,i)=>`${i}: ${c.name} (ATK:${c.atk} HP:${c.hp})`).join("\n");
+  openModal("凍結(最大2)", `凍結する相手を最大2体選んでね。\n\n${lines}`, [
+    {label:"0",onClick:()=>{enemy.field[0]&&(enemy.field[0].frozen=true); log("凍結した。"); closeModal(); updateUI();}},
+    {label:"1",onClick:()=>{enemy.field[1]&&(enemy.field[1].frozen=true); log("凍結した。"); closeModal(); updateUI();}},
+    {label:"0&1",onClick:()=>{[0,1].forEach(i=>enemy.field[i]&&(enemy.field[i].frozen=true)); log("2体凍結した。"); closeModal(); updateUI();}},
+    {label:"閉じる",onClick:()=>{closeModal();}}
+  ]);
+}
+
+function effectDestroyOne(side){
+  const enemy=battle[enemySide(side)];
+  if(enemy.field.length===0){ log("破壊先なし。"); return; }
+  if(side==="cpu"){
+    // destroy best lore threat
+    let best=-1,bScore=-1;
+    enemy.field.forEach((c,i)=>{ const sc=c.lore*10 + c.atk*2 + (c.hp); if(sc>bScore){bScore=sc;best=i;} });
+    destroyChar(enemySide(side), best, "召喚時効果");
+    return;
+  }
+  chooseEnemyCharIndexUI(side, "破壊", "破壊する相手キャラを選んでね。").then(i=>{
+    if(i==null) return;
+    destroyChar(enemySide(side), i, "召喚時効果");
+    updateUI();
+  });
+}
+
+function effectEnemyCharToInk(side){
+  const enemy=battle[enemySide(side)];
+  if(enemy.field.length===0){ log("対象なし。"); return; }
+  if(side==="cpu"){
+    let best=0,score=-999;
+    enemy.field.forEach((c,i)=>{ const sc=c.lore*10 + c.atk*3 + c.hp; if(sc>score){score=sc;best=i;} });
+    const t=enemy.field.splice(best,1)[0];
+    moveToInkByEffect(enemySide(side), t, "ゴーズ/効果");
+    return;
+  }
+  chooseEnemyCharIndexUI(side, "インク送り", "相手キャラ1体をインクへ送る。対象を選んでね。").then(i=>{
+    if(i==null) return;
+    const t=battle[enemySide(side)].field.splice(i,1)[0];
+    moveToInkByEffect(enemySide(side), t, "効果");
+    updateUI();
+  });
+}
+
+function effectBounceOne(side){
+  const enemy=battle[enemySide(side)];
+  if(enemy.field.length===0){ log("対象なし。"); return; }
+  if(side==="cpu"){
+    // bounce biggest tempo
+    let best=0,score=-999;
+    enemy.field.forEach((c,i)=>{ const sc=c.cost*10 + c.lore*5 + c.atk*2; if(sc>score){score=sc;best=i;} });
+    const t=enemy.field.splice(best,1)[0];
+    battle[enemySide(side)].hand.push(t);
+    log(`${sideName(enemySide(side))}の「${t.name}」が手札に戻った。`);
+    return;
+  }
+  chooseEnemyCharIndexUI(side, "バウンス", "相手キャラ1体を手札に戻す。対象を選んでね。").then(i=>{
+    if(i==null) return;
+    const t=battle[enemySide(side)].field.splice(i,1)[0];
+    battle[enemySide(side)].hand.push(t);
+    log(`${sideName(enemySide(side))}の「${t.name}」が手札に戻った。`);
+    updateUI();
+  });
+}
+
+function effectPretzel(side){
+  const me=battle[side];
+  const damaged = me.field.map((c,i)=>({i,need:c.maxHp-c.hp})).filter(x=>x.need>0);
+  if(damaged.length===0){ log("回復対象なし。"); return; }
+
+  if(side==="cpu"){
+    // heal up to 3 starting from highest lore
+    let heal=3, healed=0;
+    damaged.sort((a,b)=> (me.field[b.i].lore - me.field[a.i].lore));
+    for(const d of damaged){
+      if(heal<=0) break;
+      const c=me.field[d.i];
+      const amt=Math.min(d.need, heal);
+      c.hp += amt;
+      heal -= amt;
+      healed += amt;
+      log(`相手は「${c.name}」を${amt}回復。`);
+    }
+    if(healed>0) effectDraw(side, healed, "プレッツェル");
+    return;
+  }
+
+  // player: simple modal choosing distribution is heavy => do quick auto: heal highest lore first
+  openModal("プレッツェル", "回復は簡略：ロアが高い順に最大3回復します（回復量=追加ドロー）。", [
+    {label:"OK",onClick:()=>{
+      closeModal();
+      let heal=3, healed=0;
+      const dmg=me.field.map((c,i)=>({i,need:c.maxHp-c.hp,lore:c.lore})).filter(x=>x.need>0).sort((a,b)=>b.lore-a.lore);
+      for(const d of dmg){
+        if(heal<=0) break;
+        const c=me.field[d.i];
+        const amt=Math.min(d.need, heal);
+        c.hp += amt;
+        heal -= amt;
+        healed += amt;
+        log(`自分の「${c.name}」を${amt}回復。`);
+      }
+      if(healed>0) effectDraw(side, healed, "プレッツェル");
+      updateUI();
+    }}
+  ]);
+}
+
+function effectArienai(side){
+  const me=battle[side];
+  const look = me.deck.slice(0,4);
+  if(look.length===0){ log("山札が少ない。"); return; }
+
+  const songIdx = look.findIndex(c=>c.type==="song");
+  if(side==="cpu"){
+    if(songIdx>=0){
+      const picked = look[songIdx];
+      // remove that card from top4 in deck
+      const realIndex = me.deck.indexOf(picked);
+      if(realIndex>=0) me.deck.splice(realIndex,1);
+      me.hand.push(picked);
+      log("相手はアリエナイでソングを1枚手札に加えた。");
+    } else {
+      log("相手のアリエナイ：ソングが見つからなかった。");
+    }
+    return;
+  }
+
+  const lines = look.map((c,i)=>`${i}: ${c.name} [${c.type}]`).join("\n");
+  openModal("アリエナイ", `上から4枚を見ました。\nソングを1枚まで手札に加えられます。\n\n${lines}`, [
+    {label:"取らない",onClick:()=>{closeModal();}},
+    ...look.map((c,i)=>({
+      label:`${i}`,
+      onClick:()=>{
+        closeModal();
+        if(c.type!=="song"){ log("ソングではないため取れない。"); return; }
+        // remove exact instance from deck (within top4 region)
+        const idx = me.deck.indexOf(c);
+        if(idx>=0) me.deck.splice(idx,1);
+        me.hand.push(c);
+        log(`自分は「${c.name}」を手札に加えた。`);
+        updateUI();
+      }
+    }))
+  ]);
+}
+
+function applyEffectCard(side, card, singer){
+  switch(card.effect){
+    case "boardwipe": {
+      // destroy all characters
+      const p=battle.player, c=battle.cpu;
+      while(p.field.length) destroyChar("player",0,"大火");
+      while(c.field.length) destroyChar("cpu",0,"大火");
+      break;
+    }
+    case "songToInk1": {
+      if(side==="cpu"){
+        // choose best enemy
+        const enemy=battle.player;
+        if(enemy.field.length){
+          let best=0,score=-999;
+          enemy.field.forEach((x,i)=>{ const sc=x.lore*10+x.cost*5+x.atk*2; if(sc>score){score=sc;best=i;} });
+          const t=enemy.field.splice(best,1)[0];
+          moveToInkByEffect("player", t, card.name);
+        }
+      } else {
+        chooseEnemyCharIndexUI(side,"ありのままで","相手キャラ1体をインクへ。対象を選んでね。").then(i=>{
+          if(i==null) return;
+          const t=battle.cpu.field.splice(i,1)[0];
+          moveToInkByEffect("cpu", t, card.name);
+          updateUI();
         });
       }
       break;
     }
-
-    case "destroyOnSummon":{
-      const enemy=battle[enemySide];
-      if(enemy.field.length===0){ addLog(`「${card.name}」の効果：対象なし`); break; }
-      let idx=0;
-      // 鬼AI：ロア最大を退場
-      if(side!=="player"){
-        let best=-1;
-        for(let i=0;i<enemy.field.length;i++){
-          const c=enemy.field[i];
-          const v=c.lore*100 + c.atk*3 + c.hp;
-          if(v>best){ best=v; idx=i; }
-        }
-      }else{
-        idx = pickTargetFromField(enemySide, "退場させる相手キャラを選んでください");
-        if(idx===null) break;
-      }
-      addLog(`「${card.name}」の効果で「${enemy.field[idx].name}」を退場させた。`);
-      enemy.field.splice(idx,1);
-      break;
-    }
-
-    case "bounceOnSummon":{
-      const enemy=battle[enemySide];
-      if(enemy.field.length===0){ addLog(`「${card.name}」の効果：対象なし`); break; }
-      let idx=0;
-      if(side==="player"){
-        idx = pickTargetFromField(enemySide, "手札に戻す相手キャラを選んでください");
-        if(idx===null) break;
-      }else{
-        // 鬼AI：ロア最大を戻す
-        let best=-1;
-        for(let i=0;i<enemy.field.length;i++){
-          const c=enemy.field[i];
-          const v=c.lore*100 + c.atk*2 + c.hp;
-          if(v>best){ best=v; idx=i; }
-        }
-      }
-      const bounced = enemy.field.splice(idx,1)[0];
-      battle[enemySide].hand.push(bounced);
-      addLog(`「${card.name}」の効果で「${bounced.name}」を手札に戻した。`);
-      break;
-    }
-
-    case "drawOnSummon1":{
-      drawCardFor(side,"effect");
-      addLog(`「${card.name}」の効果で${sideLabel(side)}は1枚ドローした。`);
-      break;
-    }
-
-    case "toInkOnSummon":{
-      const s=battle[side];
-      if(s.hand.length===0){ addLog(`「${card.name}」の効果：手札がないため不発`); break; }
-
-      if(side==="player"){
-        let msg="インクに置く手札を番号で選んでください（効果なので×でもOK）\n";
-        s.hand.forEach((c,i)=> msg+=`${i}: ${c.name} ${c.inkable?"":"(×)"}\n`);
-        const pick=prompt(msg,"0"); if(pick===null) break;
-        const idx=parseInt(pick,10);
-        if(Number.isNaN(idx)||idx<0||idx>=s.hand.length){ alert("不正"); break; }
-        inkFromHand(side, idx, true);
-      }else{
-        // 鬼AI：一番重いカードをインクへ（安定化）
-        let idx=0;
-        for(let i=1;i<s.hand.length;i++){
-          if(s.hand[i].cost > s.hand[idx].cost) idx=i;
-        }
-        inkFromHand(side, idx, true);
+    case "discard1": {
+      const enemy=battle[enemySide(side)];
+      if(enemy.hand.length===0){ log("相手の手札が0。"); break; }
+      if(side==="cpu"){
+        // player discards random
+        const i=Math.floor(Math.random()*enemy.hand.length);
+        const t=enemy.hand.splice(i,1)[0];
+        enemy.discard.push(t);
+        log(`自分は手札を1枚捨てた。`);
+      } else {
+        // cpu discards random
+        const i=Math.floor(Math.random()*enemy.hand.length);
+        const t=enemy.hand.splice(i,1)[0];
+        enemy.discard.push(t);
+        log(`相手は手札を1枚捨てた。`);
       }
       break;
     }
-
-    case "pretzelHealDraw":{
-      // 3回復まで分配→その回復量だけドロー
-      const s=battle[side];
-      if(s.field.length===0){ addLog(`「${card.name}」効果：対象なし`); break; }
-
-      let remaining=3;
-      let healed=0;
-
-      if(side==="player"){
-        while(remaining>0){
-          const idx = pickTargetFromField(side, `回復する自分キャラを選んでください（残り回復${remaining}。キャンセルで終了）`);
-          if(idx===null) break;
-          const target=s.field[idx];
-          const can = Math.min(remaining, target.maxHp - target.hp);
-          if(can<=0){ alert("そのキャラは回復できない"); continue; }
-          const amt = parseInt(prompt(`「${target.name}」を何回復？（1〜${can}）`, String(can))||"0",10);
-          if(!amt || amt<1 || amt>can){ alert("不正"); continue; }
-          target.hp += amt;
-          remaining -= amt;
-          healed += amt;
-          addLog(`「${target.name}」を${amt}回復（HP ${target.hp}/${target.maxHp}）`);
-        }
-      }else{
-        // 鬼AI：落ちそうな順に回復
-        const order=s.field.map((c,i)=>({c,i})).sort((a,b)=> (a.c.hp-a.c.maxHp) - (b.c.hp-b.c.maxHp));
-        for(const obj of order){
-          if(remaining<=0) break;
-          const t=obj.c;
-          const can = Math.min(remaining, t.maxHp - t.hp);
-          if(can<=0) continue;
-          t.hp += can;
-          remaining -= can;
-          healed += can;
-          addLog(`相手は「${t.name}」を${can}回復した。`);
-        }
-      }
-
-      for(let i=0;i<healed;i++) drawCardFor(side,"effect");
-      addLog(`回復した分だけ${sideLabel(side)}は${healed}枚ドローした。`);
+    case "draw3": {
+      effectDraw(side,3,card.name);
       break;
     }
-
-    case "arienaiSearchSong":{
-      const s=battle[side];
-      // デッキ上4枚からsongを1枚まで手札へ
-      const peek = s.deck.slice(0,4);
-      if(peek.length===0){ addLog("アリエナイ効果：山札がない"); break; }
-      const songs = peek.filter(c=>c.type==="song");
-      if(songs.length===0){ addLog("アリエナイ効果：ソングが見つからなかった"); break; }
-
-      let chosen=null;
-      if(side==="player"){
-        let msg="上4枚から手札に加えるソングを選んでください（キャンセルで無し）\n";
-        songs.forEach((c,i)=> msg+=`${i}: ${c.name}(cost${c.cost})\n`);
-        const pick=prompt(msg,"0");
-        if(pick!==null){
-          const idx=parseInt(pick,10);
-          if(!Number.isNaN(idx) && idx>=0 && idx<songs.length) chosen=songs[idx];
+    case "handReset7": {
+      // both discard all then draw 7 by effect
+      ["player","cpu"].forEach(s=>{
+        const me=battle[s];
+        while(me.hand.length) me.discard.push(me.hand.shift());
+      });
+      effectDraw("player",7,card.name);
+      effectDraw("cpu",7,card.name);
+      break;
+    }
+    case "damage3": {
+      // action: deal 3 to enemy char
+      if(side==="cpu"){
+        const enemy=battle.player;
+        if(enemy.field.length){
+          let best=0,score=-999;
+          enemy.field.forEach((x,i)=>{ const sc=(x.lore*10)+(x.atk*2)+(x.hp); if(sc>score){score=sc;best=i;} });
+          dealDamageToChar("player", best, 3, card.name);
         }
-      }else{
-        // 鬼AI：盤面/手札状況で強いソング優先（大火>全体>単体>ドロー>捨て）
-        const scoreSong=(c)=>{
-          if(c.effect==="boardwipe") return 1000;
-          if(c.effect==="aoe2") return 700;
-          if(c.effect==="damage3") return 500;
-          if(c.effect==="discard1") return 400;
-          if(c.effect==="draw3") return 350;
-          if(c.effect==="handReset7") return 200;
-          if(c.effect==="songToInk1") return 250;
-          return 0;
-        };
-        chosen = songs.slice().sort((a,b)=>scoreSong(b)-scoreSong(a))[0];
-      }
-
-      // デッキ上4枚を取り出す
-      s.deck = s.deck.slice(4);
-      // chosenを手札に、残りは下へ（順序は簡略：そのまま下）
-      if(chosen){
-        s.hand.push(chosen);
-        addLog(`「アリエナイ」効果：ソング「${chosen.name}」を手札に加えた。`);
-        peek.filter(x=>x!==chosen).forEach(x=> s.deck.push(x));
-      }else{
-        addLog("アリエナイ効果：ソングを加えなかった。");
-        peek.forEach(x=> s.deck.push(x));
+      } else {
+        chooseEnemyCharIndexUI(side,"スラッシュ！","相手キャラ1体に3ダメージ。対象を選んでね。").then(i=>{
+          if(i==null) return;
+          dealDamageToChar("cpu", i, 3, card.name);
+          updateUI();
+        });
       }
       break;
     }
+    case "aoe2": {
+      const enemy=battle[enemySide(side)];
+      for(let i=enemy.field.length-1;i>=0;i--){
+        dealDamageToChar(enemySide(side), i, 2, card.name);
+      }
+      break;
+    }
+    default: break;
   }
 }
 
-/* ========== プレイヤー操作 ========== */
-function onPlayerHandCardClick(index){
+/* ===== Player click handlers ===== */
+function onHandClick(i){
+  if(!battle||battle.turn.current!=="player") return;
+  const c=battle.player.hand[i]; if(!c) return;
+
+  let html = `<div style="margin-bottom:6px;"><b>手札：</b>${c.name}</div>`;
+  html += `<button class="btn small" onclick="showDetail(battle.player.hand[${i}])">詳細</button>`;
+
+  // ink option
+  html += `<button class="btn small" onclick="tryPlaceInkFromHand('player',${i})">インク化</button>`;
+
+  if(c.type==="character"){
+    html += `<button class="btn small" onclick="summonFromHand('player',${i})">召喚（${c.cost}）</button>`;
+  } else if(c.type==="song"){
+    // offer sing options
+    html += `<div style="font-size:11px;opacity:.85;margin-top:6px;">ソング：インクで使用 or キャラで歌う（キャラのコスト≥${c.cost}）</div>`;
+    html += `<button class="btn small" onclick="playSongFromHand('player',${i},null)">インクで使用</button>`;
+    battle.player.field.forEach((x,idx)=>{
+      const ok = canAct(x) && x.cost>=c.cost;
+      html += `<button class="btn small" ${ok?"":"disabled"} onclick="playSongFromHand('player',${i},${idx})">歌う:${x.name}</button>`;
+    });
+  } else if(c.type==="action"){
+    html += `<button class="btn small" onclick="playActionFromHand('player',${i})">使用（${c.cost}）</button>`;
+    html += `<div style="font-size:11px;opacity:.8;">※アクションは歌えない</div>`;
+  }
+
+  qs("actionArea").innerHTML = html;
+}
+
+function onFieldClick(i){
   if(!battle) return;
-  if(battle.currentPlayer!=="player") return;
+  const c=battle.player.field[i]; if(!c) return;
 
-  const card=battle.player.hand[index];
-  if(!card) return;
+  let html = `<div style="margin-bottom:6px;"><b>場：</b>${c.name} ${c.rest?"[REST]":"[READY]"} ${c.frozen?"[凍結]":""}</div>`;
+  html += `<button class="btn small" onclick="showDetail(battle.player.field[${i}])">詳細</button>`;
 
-  let html = `<div>手札：「${card.name}」</div>`;
+  if(battle.turn.current==="player"){
+    if(canAct(c)){
+      if(c.lore>0) html += `<button class="btn small" onclick="doSeek('player',${i})">シーク（+${c.lore}）</button>`;
 
-  // インク化
-  const canInk = canInkCardFromHand("player", card);
-  html += `<button class="btn small" ${canInk?"":"disabled"} onclick="inkFromHand('player', ${index}, false)">
-    インク化 ${canInk?"":"（不可/上限）"}
-  </button>`;
+      // challenge menu: show rested targets only
+      const targets = battle.cpu.field
+        .map((t,idx)=>({t,idx}))
+        .filter(x=>canTarget(c,x.t));
 
-  // 召喚
-  if(card.type==="character"){
-    html += `<button class="btn small" onclick="playPlayerCharacter(${index})">召喚（cost${card.cost}）</button>`;
+      if(targets.length && c.atk>0){
+        html += `<div style="font-size:11px;opacity:.85;margin-top:6px;">チャレンジ先（レストのみ）</div>`;
+        targets.forEach(x=>{
+          html += `<button class="btn small" onclick="resolveChallenge('player',${i},${x.idx}); updateUI(); checkWin();">→ ${x.t.name}</button>`;
+        });
+      } else {
+        html += `<div style="font-size:11px;opacity:.75;margin-top:6px;">チャレンジ可能な相手（レスト）がいません。</div>`;
+      }
+    } else {
+      html += `<div style="font-size:11px;opacity:.75;">このキャラは行動できません（レスト/凍結/召喚酔い）。</div>`;
+    }
   }
-
-  // ソング使用（歌う/支払い）
-  if(card.type==="song"){
-    html += `<button class="btn small" onclick="playPlayerSong(${index})">ソング使用（cost${card.cost}）</button>`;
-  }
-
-  html += `<button class="btn small" onclick="showCardDetail(cardFromBattle('player','hand',${index}))">カード詳細</button>`;
-  document.getElementById("actionArea").innerHTML=html;
+  qs("actionArea").innerHTML = html;
 }
 
-function onPlayerFieldCardClick(index){
+/* ===== CPU AI (normal/strong/god) ===== */
+function cpuTakeTurn(){
   if(!battle) return;
-  const card=battle.player.field[index];
-  if(!card) return;
 
-  let html = `<div>場：「${card.name}」</div>`;
-
-  if(battle.currentPlayer==="player"){
-    if(canCharacterAct(card)){
-      if(card.lore>0){
-        html += `<button class="btn small" onclick="doSeek('player', ${index})">シーク（+${card.lore}）</button>`;
-      }
-
-      // チャレンジ：相手のレストだけ
-      const restTargets = battle.cpu.field.filter(c=>c.rest);
-      if(restTargets.length>0 && card.atk>0){
-        html += `<button class="btn small" onclick="doChallengePlayer(${index})">チャレンジ（相手RESTのみ）</button>`;
-      }else{
-        html += `<div style="font-size:11px;opacity:0.8;">チャレンジ先：相手にRESTがいない</div>`;
-      }
-    }else{
-      html += `<div style="font-size:11px;opacity:0.8;">このキャラは行動できない（REST/凍結）</div>`;
-    }
-  }
-
-  html += `<button class="btn small" onclick="showCardDetail(cardFromBattle('player','field',${index}))">カード詳細</button>`;
-  document.getElementById("actionArea").innerHTML=html;
-}
-
-function cardFromBattle(side, place, index){
-  if(place==="hand") return battle[side].hand[index];
-  if(place==="field") return battle[side].field[index];
-  return null;
-}
-
-function playPlayerCharacter(handIndex){
-  const s=battle.player;
-  const card=s.hand[handIndex];
-  if(!card || card.type!=="character") return;
-  if(s.inkCurrent < card.cost){ alert("インクが足りません"); return; }
-
-  s.inkCurrent -= card.cost;
-  s.hand.splice(handIndex,1);
-  card.rest=false;
-  card.frozen=false;
-  card.summonTurn=battle.turnCount;
-  s.field.push(card);
-
-  addLog(`自分は「${card.name}」を召喚した。`);
-  handleOnSummonEffects("player", card);
-  updateBattleUI();
-}
-
-function playPlayerSong(handIndex){
-  const s=battle.player;
-  const song=s.hand[handIndex];
-  if(!song || song.type!=="song") return;
-
-  const singers = listSingersForSong("player", song);
-
-  let msg = `ソング「${song.name}」（cost${song.cost}）\n`;
-  msg += `0: インクで支払って使用\n`;
-  singers.forEach((x,n)=> msg += `${n+1}: 「${x.card.name}」で歌う（インク不要／そのキャラはREST）\n`);
-  const pick = prompt(msg,"0");
-  if(pick===null) return;
-  const n=parseInt(pick,10);
-  if(Number.isNaN(n) || n<0 || n> singers.length){ alert("不正"); return; }
-
-  if(n===0){
-    if(s.inkCurrent < song.cost){ alert("インクが足りません"); return; }
-    s.inkCurrent -= song.cost;
-    s.hand.splice(handIndex,1);
-    addLog(`自分はソング「${song.name}」をインクで使用した。`);
-    applySongEffect("player", song);
-  }else{
-    const singer=singers[n-1];
-    battle.player.field[singer.idx].rest=true;
-    s.hand.splice(handIndex,1);
-    addLog(`自分は「${singer.card.name}」でソング「${song.name}」を歌った。`);
-    applySongEffect("player", song);
-  }
-
-  addLog(`ソング「${song.name}」は使用後に破壊された。`);
-  updateBattleUI();
-  checkWin();
-}
-
-function doChallengePlayer(fieldIndex){
-  const attacker=battle.player.field[fieldIndex];
-  if(!attacker || !canCharacterAttack("player", attacker)){
-    alert("このキャラはまだチャレンジできません（召喚ターン/REST/凍結）");
-    return;
-  }
-  const restTargets = battle.cpu.field.map((c,i)=>({c,i})).filter(x=>x.c.rest);
-  if(restTargets.length===0){ alert("相手にRESTがいません"); return; }
-
-  // プレイヤーは選択
-  let msg="チャレンジ先（REST）を選んでください\n";
-  restTargets.forEach((x,k)=> msg += `${k}: ${x.c.name} (HP${x.c.hp})\n`);
-  const pick=prompt(msg,"0"); if(pick===null) return;
-  const k=parseInt(pick,10);
-  if(Number.isNaN(k)||k<0||k>=restTargets.length){ alert("不正"); return; }
-  resolveCombat("player", fieldIndex, restTargets[k].i);
-
-  updateBattleUI();
-  checkWin();
-}
-
-/* ========== CPU（鬼AI） ========== */
-function cpuTryInk(){
-  const cpu=battle.cpu;
-  const allowed = inkPlacementsAllowed("cpu");
-  if(cpu.inkPlacedThisTurn >= allowed) return false;
-  if(cpu.hand.length===0) return false;
-
-  // 鬼AI：基本は “重いカード” を優先でインク化（ただしinkableのみ）
-  let idx=-1;
-  let best=-1;
-  for(let i=0;i<cpu.hand.length;i++){
-    const c=cpu.hand[i];
-    if(!c.inkable) continue;
-    const v = c.cost*10 + (c.type==="song"?5:0) + (c.rarity==="L"?4:0);
-    if(v>best){ best=v; idx=i; }
-  }
-  if(idx<0) return false;
-  return inkFromHand("cpu", idx, false);
-}
-
-function cpuBestSingerFor(song){
-  const singers=listSingersForSong("cpu", song);
-  // 鬼AI：使い終わる（RESTになる）ので、ロアが低いキャラから歌わせる
-  singers.sort((a,b)=> (a.card.lore-b.card.lore) || (a.card.atk-b.card.atk));
-  return singers[0] || null;
-}
-
-function cpuTryPlaySongOnce(){
-  const cpu=battle.cpu;
-  // 鬼AI：効果優先順位
-  const scoreSong=(song)=>{
-    if(song.effect==="boardwipe"){
-      // 相手が多いほど強い
-      return 900 + battle.player.field.length*50;
-    }
-    if(song.effect==="aoe2") return 700 + battle.player.field.length*30;
-    if(song.effect==="damage3") return 520;
-    if(song.effect==="discard1") return 450 + battle.player.hand.length*10;
-    if(song.effect==="draw3") return 360;
-    if(song.effect==="songToInk1") return 300;
-    if(song.effect==="handReset7") return 120;
-    return 0;
-  };
-
-  // 手札のソング候補
-  const songs = cpu.hand.map((c,i)=>({c,i})).filter(x=>x.c.type==="song");
-  if(!songs.length) return false;
-
-  songs.sort((a,b)=> scoreSong(b.c)-scoreSong(a.c));
-
-  for(const obj of songs){
-    const song=obj.c;
-
-    // 1) 歌えるなら歌う（インク節約）
-    const singer = cpuBestSingerFor(song);
-    if(singer){
-      battle.cpu.field[singer.idx].rest=true;
-      cpu.hand.splice(obj.i,1);
-      addLog(`相手は「${singer.card.name}」でソング「${song.name}」を歌った。`);
-      applySongEffect("cpu", song);
-      addLog(`ソング「${song.name}」は使用後に破壊された。`);
-      return true;
-    }
-
-    // 2) インクで払えるなら払う
-    if(cpu.inkCurrent >= song.cost){
-      cpu.inkCurrent -= song.cost;
-      cpu.hand.splice(obj.i,1);
-      addLog(`相手はインクでソング「${song.name}」を使用した。`);
-      applySongEffect("cpu", song);
-      addLog(`ソング「${song.name}」は使用後に破壊された。`);
-      return true;
-    }
-  }
-  return false;
-}
-
-function cpuTrySummonBest(){
-  const cpu=battle.cpu;
-  const chars = cpu.hand.map((c,i)=>({c,i})).filter(x=>x.c.type==="character" && x.c.cost<=cpu.inkCurrent);
-  if(!chars.length) return false;
-
-  // 鬼AI：価値関数（ロア重視＋効果＋ATK/HP）
-  const value=(c)=>{
-    let v = c.lore*50 + c.atk*8 + c.hp*6;
-    if(c.effect==="freeze2") v+=120;
-    if(c.effect==="destroyOnSummon") v+=140;
-    if(c.effect==="bounceOnSummon") v+=110;
-    if(c.effect==="toInkOnSummon") v+=80;
-    if(c.effect==="pretzelHealDraw") v+=60;
-    if(c.id===ID_LIN) v+=70; // インク置き+1は超強い
-    if(c.rush) v+=20;
-    if(c.mustAttack) v-=10;
-    return v;
-  };
-
-  chars.sort((a,b)=> value(b.c)-value(a.c));
-  const pick=chars[0];
-
-  const card=pick.c;
-  cpu.inkCurrent -= card.cost;
-  cpu.hand.splice(pick.i,1);
-  card.rest=false;
-  card.frozen=false;
-  card.summonTurn=battle.turnCount;
-  cpu.field.push(card);
-  addLog(`相手は「${card.name}」を召喚した。`);
-  handleOnSummonEffects("cpu", card);
-  return true;
-}
-
-function cpuTryChallengeOrSeek(){
   const cpu=battle.cpu;
   const me=battle.player;
 
-  // 鬼AI：まず「必ず攻撃」持ちを処理
-  const attackers = cpu.field.map((c,i)=>({c,i})).filter(x=>canCharacterAttack("cpu", x.c));
-
-  // 相手RESTターゲット一覧
-  const restTargets = me.field.map((c,i)=>({c,i})).filter(x=>x.c.rest);
-
-  // チャレンジ：できるなら「倒せる/ロア高い」順
-  function scoreTarget(attacker, target){
-    const kill = (target.c.hp <= attacker.atk) ? 200 : 0;
-    const lore = target.c.lore*80;
-    const atk  = target.c.atk*8;
-    return kill + lore + atk;
+  // 1) ink placement (smart)
+  const limit = calcInkPlacementLimit("cpu");
+  while(battle.turn.inkPlaced.cpu < limit){
+    // choose worst inkable card to ink: highest cost, low impact, or duplicate
+    let bestIdx = -1, bestScore = -999999;
+    cpu.hand.forEach((c,i)=>{
+      if(!c.inkable) return;
+      // keep songs sometimes if god
+      const isKeyRemoval = (c.effect==="boardwipe"||c.effect==="songToInk1"||c.effect==="damage3"||c.effect==="aoe2");
+      let score = c.cost*10 - (c.lore*6 + c.atk*3 + c.hp);
+      if(c.type==="song") score += (cpuStrength==="god"? 8 : 3);
+      if(isKeyRemoval) score -= (cpuStrength==="god"? 80 : 30);
+      if(score>bestScore){bestScore=score;bestIdx=i;}
+    });
+    if(bestIdx<0) break;
+    tryPlaceInkFromHand("cpu", bestIdx);
   }
 
-  // 1) mustAttack キャラ
-  const must = attackers.filter(x=>x.c.mustAttack);
-  for(const a of must){
-    if(restTargets.length>0){
-      // 最高スコアに攻撃
-      let bestK=0, best=-999;
-      restTargets.forEach((t,k)=>{
-        const s=scoreTarget(a.c,t.c);
-        if(s>best){ best=s; bestK=k; }
+  // 2) play removals / songs / actions (strong/god)
+  if(cpuStrength!=="normal"){
+    // use damage3 if can kill something
+    const dmgIdx = cpu.hand.findIndex(c=>c.effect==="damage3" && c.cost<=cpu.inkCurrent);
+    if(dmgIdx>=0 && me.field.length){
+      // pick kill or best value
+      let best=0,score=-999;
+      me.field.forEach((x,i)=>{
+        const kill = (x.hp<=3);
+        const sc = (kill?1000:0) + x.lore*10 + x.atk*3 + x.cost*4;
+        if(sc>score){score=sc;best=i;}
       });
-      resolveCombat("cpu", a.i, restTargets[bestK].i);
-      updateBattleUI();
-      return true;
+      cpu.inkCurrent -= cpu.hand[dmgIdx].cost;
+      const card = cpu.hand.splice(dmgIdx,1)[0];
+      log(`相手はアクション「${card.name}」を使用。`);
+      applyEffectCard("cpu", card, null);
+      cpu.discard.push(card);
+      updateUI();
+      if(checkWin()) return;
+    }
+
+    // boardwipe if behind a lot
+    const wipeIdx = cpu.hand.findIndex(c=>c.effect==="boardwipe" && c.type==="song");
+    if(wipeIdx>=0){
+      const behind = me.field.length - cpu.field.length;
+      if(behind>=2 && cpu.field.length<=2){
+        // try sing or pay
+        const song = cpu.hand[wipeIdx];
+        const singerIdx = cpu.field.findIndex(x=>canAct(x) && x.cost>=song.cost);
+        if(singerIdx>=0 || cpu.inkCurrent>=song.cost){
+          playSongFromHand("cpu", wipeIdx, singerIdx>=0?singerIdx:null);
+          updateUI();
+        }
+      }
     }
   }
 
-  // 2) 通常：勝ち筋（ロア）優先
-  // - 相手RESTがいるなら、倒せる/ロア高いを叩く
-  for(const a of attackers){
-    if(restTargets.length>0 && a.c.atk>0){
-      let bestK=0, best=-999;
-      restTargets.forEach((t,k)=>{
-        const s=scoreTarget(a.c,t.c);
-        if(s>best){ best=s; bestK=k; }
+  // 3) summon as much as possible (prefer best value)
+  let progressed=true;
+  while(progressed){
+    progressed=false;
+    // find best character to summon
+    let bestIdx=-1, bestScore=-999;
+    cpu.hand.forEach((c,i)=>{
+      if(c.type!=="character") return;
+      if(c.cost>cpu.inkCurrent) return;
+      let sc = c.lore*20 + c.atk*5 + c.hp*3 + c.cost;
+      if(c.effect==="destroyOnSummon"||c.effect==="toInkOnSummon") sc += 80;
+      if(c.effect==="freeze2") sc += 70;
+      if(c.effect==="pretzelHealDraw") sc += 35;
+      if(c.effect==="arienaiSearchSong") sc += 30;
+      if(cpuStrength==="god") sc += (c.rush?15:0);
+      if(sc>bestScore){bestScore=sc;bestIdx=i;}
+    });
+    if(bestIdx>=0){
+      summonFromHand("cpu", bestIdx);
+      progressed=true;
+    }
+  }
+
+  // 4) play remaining key songs if possible (draw3, aoe2, songToInk1)
+  if(cpuStrength!=="normal"){
+    // songToInk1 (ありのままで)
+    const idx=cpu.hand.findIndex(c=>c.effect==="songToInk1" && c.type==="song");
+    if(idx>=0 && me.field.length){
+      const song=cpu.hand[idx];
+      const singerIdx=cpu.field.findIndex(x=>canAct(x)&&x.cost>=song.cost);
+      if(singerIdx>=0 || cpu.inkCurrent>=song.cost){
+        playSongFromHand("cpu", idx, singerIdx>=0?singerIdx:null);
+      }
+    }
+    // draw3
+    const d3=cpu.hand.findIndex(c=>c.effect==="draw3" && c.type==="song");
+    if(d3>=0){
+      const song=cpu.hand[d3];
+      const singerIdx=cpu.field.findIndex(x=>canAct(x)&&x.cost>=song.cost);
+      if(singerIdx>=0 || cpu.inkCurrent>=song.cost){
+        playSongFromHand("cpu", d3, singerIdx>=0?singerIdx:null);
+      }
+    }
+  }
+
+  // 5) combat/seek (strong/god tries best)
+  cpu.field.forEach((att,attIdx)=>{
+    if(!battle) return;
+    if(!canChallenge(att)) return;
+
+    // mustAttack: if any valid target exists, must attack
+    const targets = me.field.map((t,i)=>({t,i})).filter(x=>canTarget(att,x.t));
+    if(targets.length){
+      // pick best trade: kill highest lore / best value, prefer kill without dying if god
+      let best=targets[0].i, score=-9999;
+      targets.forEach(x=>{
+        const t=x.t;
+        let attAtk=att.atk + (att.effect==="frenzy2"?2:0);
+        const kill = t.hp - attAtk <= 0;
+        const survive = att.hp - t.atk > 0;
+        let sc = (kill?200:0) + t.lore*25 + t.cost*6 + t.atk*3;
+        if(cpuStrength==="god"){ sc += (survive?60:0); }
+        if(sc>score){score=sc;best=x.i;}
       });
-      const ok = resolveCombat("cpu", a.i, restTargets[bestK].i);
-      if(ok){ updateBattleUI(); return true; }
+      resolveChallenge("cpu", attIdx, best);
+      updateUI();
+      if(checkWin()) return;
+    } else {
+      // no rested targets => seek if can
+      if(canAct(att) && att.lore>0){
+        doSeek("cpu", attIdx);
+      }
     }
-  }
+  });
 
-  // 3) 相手RESTがいない/攻撃できないなら、シーク（ロア最大から）
-  const seekers = cpu.field.map((c,i)=>({c,i})).filter(x=>canCharacterAct(x.c) && x.c.lore>0);
-  if(seekers.length){
-    seekers.sort((a,b)=> b.c.lore-a.c.lore);
-    doSeek("cpu", seekers[0].i);
-    return true;
-  }
-
-  return false;
-}
-
-function cpuDoTurn(){
-  // CPUの行動回数を増やす（鬼ほど思考/実行を増やす）
-  const loops = (battle.cpuStrength==="god") ? 18 : (battle.cpuStrength==="strong") ? 10 : 6;
-
-  for(let t=0;t<loops;t++){
-    if(checkWin()) return;
-
-    // まずインクを置く（必要な時に最優先）
-    if(cpuTryInk()){
-      if(battle.cpuStrength!=="normal") continue;
-    }
-
-    // ソング優先（鬼は連打する）
-    if(cpuTryPlaySongOnce()){
-      if(battle.cpuStrength==="god") continue;
-    }
-
-    // 召喚できるなら召喚
-    if(cpuTrySummonBest()){
-      if(battle.cpuStrength!=="normal") continue;
-    }
-
-    // 攻撃/シーク
-    if(cpuTryChallengeOrSeek()){
-      if(battle.cpuStrength==="god") continue;
-    }
-
-    // 何もできないなら終了
-    break;
-  }
-
-  updateBattleUI();
+  updateUI();
   if(checkWin()) return;
 
-  addLog("相手はターンを終了した。");
-  startTurn("player");
+  log("相手はターン終了。");
+  // next turn
+  battle.turn.turnCount += 1;
+  beginTurn("player", false);
 }
 
-/* ========== 画面更新 ========== */
-function updateBattleUI(){
+/* ===== UI update ===== */
+function updateUI(){
   if(!battle) return;
 
-  // CPU
-  document.getElementById("cpuHandCount").textContent = battle.cpu.hand.length;
-  document.getElementById("cLore").textContent = battle.cpu.lore;
-  document.getElementById("cDeck").textContent = battle.cpu.deck.length;
-  document.getElementById("cpuInkCurrent").textContent = battle.cpu.inkCurrent;
-  document.getElementById("cpuInkMax").textContent = battle.cpu.inkMax;
+  qs("cpuHandCount").textContent = battle.cpu.hand.length;
+  qs("cLore").textContent = battle.cpu.lore;
+  qs("cDeck").textContent = battle.cpu.deck.length;
+  qs("cpuInkCur").textContent = battle.cpu.inkCurrent;
+  qs("cpuInkMax").textContent = battle.cpu.inkMax;
 
-  // Player
-  document.getElementById("playerLore").textContent = battle.player.lore;
-  document.getElementById("playerInkCurrent").textContent = battle.player.inkCurrent;
-  document.getElementById("playerInkMax").textContent = battle.player.inkMax;
-  document.getElementById("playerDeck").textContent = battle.player.deck.length;
+  qs("playerLore").textContent = battle.player.lore;
+  qs("playerInkCurrent").textContent = battle.player.inkCurrent;
+  qs("playerInkMax").textContent = battle.player.inkMax;
+  qs("playerDeck").textContent = battle.player.deck.length;
+  qs("turnInfo").textContent = battle.turn.current==="player" ? "自分のターン" : "相手のターン";
 
-  document.getElementById("turnInfo").textContent = (battle.currentPlayer==="player") ? "自分のターン" : "相手のターン";
-
-  const cpuFieldEl=document.getElementById("cpuField");
-  cpuFieldEl.innerHTML="";
-  battle.cpu.field.forEach(card=>{
-    const wrap=document.createElement("div");
-    wrap.innerHTML=renderCardHtml(card);
-    cpuFieldEl.appendChild(wrap.firstElementChild);
+  // fields
+  const cpuF=qs("cpuField"); cpuF.innerHTML="";
+  battle.cpu.field.forEach(c=>{
+    const w=document.createElement("div"); w.innerHTML=renderCard(c);
+    w.firstElementChild.onclick=()=>showDetail(c);
+    cpuF.appendChild(w.firstElementChild);
   });
 
-  const playerFieldEl=document.getElementById("playerField");
-  playerFieldEl.innerHTML="";
-  battle.player.field.forEach((card,idx)=>{
-    const wrap=document.createElement("div");
-    wrap.innerHTML=renderCardHtml(card);
-    const el=wrap.firstElementChild;
-    el.onclick=()=>onPlayerFieldCardClick(idx);
-    playerFieldEl.appendChild(el);
+  const pF=qs("playerField"); pF.innerHTML="";
+  battle.player.field.forEach((c,i)=>{
+    const w=document.createElement("div"); w.innerHTML=renderCard(c);
+    w.firstElementChild.onclick=()=>onFieldClick(i);
+    pF.appendChild(w.firstElementChild);
   });
 
-  const playerHandEl=document.getElementById("playerHand");
-  playerHandEl.innerHTML="";
-  battle.player.hand.forEach((card,idx)=>{
-    const wrap=document.createElement("div");
-    wrap.innerHTML=renderCardHtml(card);
-    const el=wrap.firstElementChild;
-    el.onclick=()=>onPlayerHandCardClick(idx);
-    playerHandEl.appendChild(el);
+  const pH=qs("playerHand"); pH.innerHTML="";
+  battle.player.hand.forEach((c,i)=>{
+    const w=document.createElement("div"); w.innerHTML=renderCard(c);
+    w.firstElementChild.onclick=()=>onHandClick(i);
+    pH.appendChild(w.firstElementChild);
   });
 }
 
-/* ========== 初期化 ========== */
+/* ===== Boot ===== */
 window.addEventListener("load", ()=>{
   loadData();
+  showScreen("menu");
 });
 </script>
 </body>
 </html>
-
